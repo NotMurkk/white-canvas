@@ -79,7 +79,19 @@ The first entry that's available wins. The themes put the real Pokémon fan tile
 - The server re-validates the files and refuses one that changed on disk since you opened it (it offers to overwrite).
 - It writes atomically and keeps the previous version in `.tdmm-backup/`.
 - Unsaved work is autosaved to the browser every couple of seconds and offered back after a crash or reload, including maps that were never saved.
-- **The published (hosted) app has no dev server.** It opens the maps that were in the repo when it was built, and Save downloads `<id>.map.json` and `<id>.waves.json` for you to put in `maps/` and commit. Saving straight from the hosted editor (to GitHub or a database) is a later step.
+- **The hosted editor saves to GitHub through pull requests** (once set up, below). Each map you save gets a branch, `editor/<map-id>`, and a pull request into `main`; every Save is one commit with the map and waves files together. The **Pull request ↗** button next to Save opens it. CI (`.github/workflows/check.yml`) runs `npm test` on the pull request, which includes the clear check, so a map only reaches `main` (and Lovable) once it passes. The editor lists and opens a map's open-PR version first, so you keep working on your latest save. Someone else's newer save is a conflict, which you can overwrite or reload.
+- Without that setup, the published editor opens the maps that were in the repo when it was built, and Save downloads `<id>.map.json` and `<id>.waves.json` for you to commit. On `localhost` it always saves to `maps/` on disk; add `?storage=github` to the URL to try GitHub saving locally.
+
+**Setting up hosted saving (once):**
+1. On GitHub, create a fine-grained personal access token (Settings → Developer settings → Personal access tokens → Fine-grained tokens). Under *Repository access*, choose *Only select repositories* → `white-canvas`. Under *Permissions*, set *Contents* and *Pull requests* to *Read and write*.
+2. In Lovable, open **More → Settings → Secrets** and add:
+   - `GITHUB_TOKEN`: the token.
+   - `EDITOR_KEY`: any long passphrase. Editors type it the first time they save, and the browser remembers it.
+   - Optional: `GITHUB_REPO` (default `NotMurkk/white-canvas`) and `GITHUB_BASE_BRANCH` (default `main`).
+3. Publish (or update) the app in Lovable. The first Save asks for the editor key.
+4. Optional: in the repo's branch protection settings, require the **Check / test** status before merging. GitHub only enforces this on private repos with a paid plan. Without it, CI still marks a failing pull request red.
+
+The token lives only on the server (`src/lib/maps.functions.ts`, `src/lib/github-maps.server.ts`); the browser never sees it.
 
 **Errors and failed clear checks** never stop you saving work in progress. But the game refuses a map with errors, and `npm test` fails if any committed map has an error or lacks a clear-check stamp that matches its current gameplay. Renames and art changes don't affect the stamp. So an unplayable or un-checked map can't be merged.
 
@@ -142,9 +154,9 @@ tools/                art generation, atlas build, pack importer, credits, Vite 
   - Box-select copy, cut, paste and delete with a layer filter, a validated paste ghost and a clipboard shared across tabs.
   - Palette search, pins and recents; 1–9 follow the order shown.
   - Last-run trails and leak markers from playtests.
-- **Hosting (done).** The editor runs inside the Lovable app: `/` is the editor, `/play` the reference game, and production builds include the data files.
+- **Hosting (done).** The editor runs inside the Lovable app: `/` is the editor, `/play` the reference game, and production builds include the data files. The hosted editor saves maps as pull requests that CI checks.
 - **Next.**
-  - Hosted saving: commit maps to GitHub (keeps the CI gate) or store them in Lovable's database.
+  - Sign-in with GitHub instead of a shared editor key, so saves are attributed to each editor.
   - Budget meter and micro-animations, the rest of the report's Phase 4 list.
   - A greedy coverage bot for the clear check, so "beatable" means more than "every enemy can walk to an exit".
 - **Real art (Batch A done).**

@@ -1,5 +1,7 @@
 import { ClientOnly, createFileRoute } from "@tanstack/react-router";
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
+import type { MapStorage } from "@tdmm/map-editor/storage";
+import { pickMapStorage } from "@/lib/github-storage";
 
 // The map editor (apps/map-editor) runs Phaser, which needs the browser's DOM and WebGL, so it is
 // loaded on the client only and never server-rendered.
@@ -26,9 +28,21 @@ function Loading() {
 function Index() {
   return (
     <ClientOnly fallback={<Loading />}>
-      <Suspense fallback={<Loading />}>
-        <MapEditor gameUrl="/play" />
-      </Suspense>
+      <Editor />
     </ClientOnly>
+  );
+}
+
+/** Picks where maps are saved (GitHub when the server is set up for it), then mounts the editor. */
+function Editor() {
+  const [storage, setStorage] = useState<{ value: MapStorage | undefined } | null>(null);
+  useEffect(() => {
+    void pickMapStorage().then((value) => setStorage({ value }));
+  }, []);
+  if (!storage) return <Loading />;
+  return (
+    <Suspense fallback={<Loading />}>
+      <MapEditor gameUrl="/play" storage={storage.value} />
+    </Suspense>
   );
 }

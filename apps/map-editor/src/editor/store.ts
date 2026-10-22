@@ -51,6 +51,8 @@ export interface EditorUiState {
   dirty: boolean;
   saveState: 'idle' | 'saving' | 'saved' | 'error' | 'conflict';
   saveMessage?: string | undefined;
+  /** Where the last save can be seen (a pull request), if anywhere. */
+  saveUrl?: string | undefined;
   showGrid: boolean;
   showArrows: boolean;
   showBuildable: boolean;

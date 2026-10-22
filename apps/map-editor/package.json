@@ -5,7 +5,8 @@
   "type": "module",
   "description": "The map editor (React + Phaser). Mounted at / by the app, client-side only.",
   "exports": {
-    "./app": "./src/entry.tsx"
+    "./app": "./src/entry.tsx",
+    "./storage": "./src/editor/storage.ts"
   },
   "dependencies": {
     "@tdmm/autotile": "0.0.0",

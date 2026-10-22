@@ -93,6 +93,7 @@ export function OpenMapDialog({ editor }: { editor: EditorController }) {
                 <strong>{m.name}</strong>
                 <span className="muted">
                   {m.id}.map.json · {m.width}×{m.height}
+                  {m.note && ` · ${m.note}`}
                 </span>
               </button>
             </li>

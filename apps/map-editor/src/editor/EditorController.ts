@@ -9,7 +9,7 @@ import * as P from './palette.ts';
 import { summarizeRun, type RunSummary } from './trails.ts';
 import { EditorScene, EDITOR_SCENE_KEY, type Ghost } from './EditorScene.ts';
 import { play, setMuted } from './sound.ts';
-import { SaveConflictError, clearAutosaves, latestAutosave, listMaps, listThemes, loadMapFiles, saveMapFiles, writeAutosave } from './storage.ts';
+import { SaveConflictError, clearAutosaves, defaultStorage, latestAutosave, writeAutosave, type MapStorage } from './storage.ts';
 import { Store, type EditorUiState, type Inspect, type Selection } from './store.ts';
 import * as T from './tools.ts';
 
@@ -31,6 +31,13 @@ type Gesture =
  * (not Phaser input), so they work the same under any UI and Phaser input stays free for playtest.
  */
 export class EditorController {
+  /** Where maps are listed, loaded and saved (local files, downloads, GitHub...). */
+  readonly storage: MapStorage;
+
+  constructor(storage: MapStorage = defaultStorage) {
+    this.storage = storage;
+  }
+
   readonly store = new Store<EditorUiState>({
     status: 'loading',
     mapId: '',
@@ -167,7 +174,7 @@ export class EditorController {
     if (this.scene?.doc.dirty && !confirm('Discard unsaved changes to this map?')) return;
     this.store.set({ status: 'loading', dialog: 'none', restore: null, error: undefined });
     try {
-      const files = await loadMapFiles(id).catch(async (e: Error) => {
+      const files = await this.storage.loadMapFiles(id).catch(async (e: Error) => {
         // A new map that was never saved (tab closed, crash, reload) still lives in the autosave.
         const saved = await latestAutosave(id);
         if (!saved || saved.baseHash !== null) throw e;
@@ -237,7 +244,7 @@ export class EditorController {
 
   async refreshMapList() {
     try {
-      this.store.set({ mapList: await listMaps() });
+      this.store.set({ mapList: await this.storage.listMaps() });
     } catch {
       // the list is a convenience
     }
@@ -670,7 +677,7 @@ export class EditorController {
 
   async refreshThemes() {
     try {
-      this.store.set({ themes: await listThemes() });
+      this.store.set({ themes: await this.storage.listThemes() });
       this.store.set({ themeCoverage: this.themeCoverage() });
     } catch {
       // the theme list is a convenience
@@ -814,22 +821,20 @@ export class EditorController {
     const check = runClearCheck(doc.state, doc.reg, waves);
     const stamped: WavesDoc = check.record ? { ...waves, clearCheck: check.record } : waves;
     this.store.set({ saveState: 'saving', saveMessage: undefined });
+    const summary = check.record ? `${check.record.rounds} rounds · ${check.record.enemies} enemies · ${check.record.durationSec}s with no towers` : check.problems[0]?.message;
     try {
-      const res = await saveMapFiles(map.id, printMap(map), printWaves(stamped), this.baseHash, force);
+      const res = await this.storage.saveMapFiles({ id: map.id, map: printMap(map), waves: printWaves(stamped), expectedHash: this.baseHash, force, name: map.name, cleared: check.passed, summary });
       this.baseHash = res.hash;
       doc.markSaved();
       doc.loadedClearCheck = check.record;
       await clearAutosaves(map.id);
       play('save');
-      if (res.downloaded) {
-        // Hosted build: no dev server to write maps/, so the files were downloaded instead.
-        this.store.set({ saveState: 'saved', saveMessage: `Downloaded ${map.id}.map.json and ${map.id}.waves.json` });
-        this.toast(`Downloaded ${map.id}.map.json and .waves.json${check.passed ? ' (cleared ✓)' : ' (draft: fails the clear check)'}. Put them in maps/ in the repo to publish the map.`, check.passed ? 'ok' : 'warn');
-      } else {
-        this.store.set({ saveState: 'saved', saveMessage: `Saved maps/${map.id}.map.json` });
-        if (check.passed) this.toast(`Saved and cleared ✓ ${check.record!.rounds} rounds play out with no towers. Ready to commit.`, 'ok');
-        else this.toast(`Saved as a draft: ${check.problems[0]?.message ?? 'the clear check failed'} The repo test will refuse it until it clears.`, 'warn');
-      }
+      this.store.set({ saveState: 'saved', saveMessage: res.message, saveUrl: res.url });
+      const verdict = check.passed ? 'cleared ✓' : `draft: ${check.problems[0]?.message ?? 'the clear check failed'}`;
+      if (res.downloaded) this.toast(`${res.message} (${verdict}). Put them in maps/ in the repo to publish the map.`, check.passed ? 'ok' : 'warn');
+      else if (res.url) this.toast(`${res.message} (${verdict}). CI runs the clear check on the pull request before it can merge.`, check.passed ? 'ok' : 'warn');
+      else if (check.passed) this.toast(`Saved and cleared ✓ ${check.record!.rounds} rounds play out with no towers. Ready to commit.`, 'ok');
+      else this.toast(`Saved as a draft: ${check.problems[0]?.message ?? 'the clear check failed'} The repo test will refuse it until it clears.`, 'warn');
       this.syncStore();
       void this.refreshMapList();
     } catch (e) {

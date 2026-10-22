@@ -6,12 +6,15 @@ import { Palette } from './components/Palette.tsx';
 import { ProblemsPanel } from './components/ProblemsPanel.tsx';
 import { WavesPanel } from './components/WavesPanel.tsx';
 import { EditorController } from './editor/EditorController.ts';
-import { HOSTED } from './editor/storage.ts';
+import type { MapStorage } from './editor/storage.ts';
 import { useStore } from './editor/store.ts';
 
-/** `gameUrl` is the page that plays a saved map (the app's /play route). */
-export function App({ gameUrl }: { gameUrl: string }) {
-  const editor = useMemo(() => new EditorController(), []);
+/**
+ * `gameUrl` is the page that plays a saved map (the app's /play route). `storage` is where maps
+ * are loaded and saved; without one, the dev server's maps/ (dev) or downloads (published).
+ */
+export function App({ gameUrl, storage }: { gameUrl: string; storage?: MapStorage | undefined }) {
+  const editor = useMemo(() => new EditorController(storage), [storage]);
   const host = useRef<HTMLDivElement>(null);
   const s = useStore(editor.store, (st) => st);
 
@@ -61,9 +64,14 @@ export function App({ gameUrl }: { gameUrl: string }) {
           <button onClick={() => editor.redo()} disabled={!s.canRedo || !editing} title="Redo (Ctrl+Y)">
             Redo
           </button>
-          <button className={s.dirty ? 'save dirty' : 'save'} onClick={() => void editor.save()} disabled={!editing || s.saveState === 'saving'} title={HOSTED ? 'Download the map and waves files to put in maps/ (Ctrl+S)' : 'Save to maps/ (Ctrl+S)'}>
+          <button className={s.dirty ? 'save dirty' : 'save'} onClick={() => void editor.save()} disabled={!editing || s.saveState === 'saving'} title={`Save to ${editor.storage.label} (Ctrl+S)`}>
             {saveLabel}
           </button>
+          {s.saveUrl && (
+            <a className="button" href={s.saveUrl} target="_blank" rel="noreferrer" title="The pull request this map was saved to; CI runs the clear check there">
+              Pull request ↗
+            </a>
+          )}
           <select className="theme-select" value={s.theme} onChange={(e) => void editor.switchTheme(e.target.value)} disabled={!editing} title="Preview theme (art only)" aria-label="Preview theme">
             {s.themes.map((t) => (
               <option key={t.id} value={t.id} disabled={!t.built}>
