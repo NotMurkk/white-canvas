@@ -92,6 +92,30 @@ export function mapStorage(): Plugin {
               });
             return send(res, 200, list);
           }
+          if (req.method === 'GET' && url.pathname === '/__tdmm/themes') {
+            // Each theme with what its built atlas resolved to: which art it has, falls back on or lacks.
+            const themesDir = resolve(ROOT, 'themes');
+            const list = readdirSync(themesDir)
+              .filter((f) => f.endsWith('.theme.json'))
+              .sort()
+              .map((f) => {
+                const t = JSON.parse(readFileSync(resolve(themesDir, f), 'utf8')) as { id: string; name: string; inherits?: string; atlas: string };
+                const atlasFile = resolve(ROOT, 'assets', 'atlases', `${t.atlas}.atlas.json`);
+                const atlas = existsSync(atlasFile) ? (JSON.parse(readFileSync(atlasFile, 'utf8')) as { theme?: { terrain: object; objects: object; fallbacks: unknown[]; missing: string[]; chain: string[] } }) : null;
+                return {
+                  id: t.id,
+                  name: t.name,
+                  inherits: t.inherits ?? null,
+                  built: !!atlas?.theme,
+                  chain: atlas?.theme?.chain ?? [t.id],
+                  terrain: atlas?.theme ? Object.keys(atlas.theme.terrain) : [],
+                  objects: atlas?.theme ? Object.keys(atlas.theme.objects) : [],
+                  fallbacks: atlas?.theme?.fallbacks.length ?? 0,
+                  missing: atlas?.theme?.missing ?? [],
+                };
+              });
+            return send(res, 200, list);
+          }
           if (req.method === 'GET' && url.pathname === '/__tdmm/map') {
             const id = url.searchParams.get('id') ?? '';
             if (!ID.test(id) || !existsSync(mapFile(id))) return send(res, 404, { error: `no map "${id}" in maps/` });

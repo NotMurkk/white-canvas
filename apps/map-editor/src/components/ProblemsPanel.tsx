@@ -1,5 +1,6 @@
 import type { EditorController } from '../editor/EditorController.ts';
 import { useStore } from '../editor/store.ts';
+import { ThemesSection } from './ThemesSection.tsx';
 
 export function ProblemsPanel({ editor }: { editor: EditorController }) {
   const problems = useStore(editor.store, (s) => s.problems);
@@ -70,6 +71,7 @@ export function ProblemsPanel({ editor }: { editor: EditorController }) {
         </table>
       )}
       <p className="muted">{buildable} cells can take a tower.</p>
+      <ThemesSection editor={editor} />
     </div>
   );
 }

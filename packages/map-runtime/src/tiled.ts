@@ -8,7 +8,7 @@ import {
   type KindRegistry,
   type TerrainGrid,
   type TerrainTypes,
-  type ThemeDoc,
+  type ResolvedTheme,
   type ZoneTypes,
 } from '@tdmm/map-format';
 
@@ -17,7 +17,8 @@ export const FIRST_GID = 1;
 
 /** A theme's art plus the content registries (structurally a @tdmm/rules Registries). */
 export interface ThemeAssets {
-  theme: ThemeDoc;
+  /** The theme as resolved into its atlas (inheritance and fallbacks applied). */
+  theme: ResolvedTheme;
   atlas: AtlasManifest;
   terrainTypes: TerrainTypes;
   kinds: KindRegistry;

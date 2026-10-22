@@ -1,0 +1,28 @@
+{
+  "pack_id": "placeholder-winter",
+  "name": "Generated placeholder art (winter)",
+  "source": { "site": "generated", "url": null, "retrieved_at": "2026-10-22", "generator": "tools/gen-placeholder-art.ts" },
+  "artist": { "name": "TDMapMaker (generated)" },
+  "upstream_credits": [],
+  "license": { "spdx": "CC0-1.0", "credit_line": null, "status": "ok", "raw_redistribution": "allowed", "terms_snapshot": null },
+  "ripped_from_official": "none",
+  "visibility": "public-ok",
+  "format": { "native_tile_px": 16, "scale": 2 },
+  "assets": {
+    "water": { "file": "water.png", "kind": "autotile", "frameMs": 320 },
+    "path_snow": { "file": "path_snow.png", "kind": "autotile" },
+    "ground": { "file": "ground.png", "kind": "tileset", "tiles": { "snow": [0, 0], "snow_b": [1, 0] } },
+    "stamps": {
+      "file": "stamps.png",
+      "kind": "tileset",
+      "regions": {
+        "tree_round": [0, 0, 2, 3],
+        "tree_pine": [2, 0, 1, 2],
+        "house_small": [3, 0, 3, 3],
+        "bush": [6, 0, 1, 1],
+        "rock": [7, 0, 1, 1],
+        "flowers": [6, 1, 1, 1]
+      }
+    }
+  }
+}

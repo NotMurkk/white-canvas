@@ -39,13 +39,13 @@ export function preloadTheme(scene: Phaser.Scene, themeId: string, urls: Content
   }
 }
 
-/** Reads and validates what preloadTheme() loaded. Call from create(). */
+/** Reads and validates what preloadTheme() loaded. Call from create(). Renders with the atlas's resolved theme. */
 export function themeAssets(scene: Phaser.Scene, themeId: string): ThemeAssets {
   const theme = ThemeDoc.parse(scene.cache.json.get(themeKey(themeId)));
   const atlas = AtlasManifest.parse(scene.cache.json.get(atlasJsonKey(theme.atlas)));
   if (!scene.textures.exists(atlasTextureKey(theme.atlas))) throw new Error(`atlas image for "${theme.atlas}" did not load`);
   return {
-    theme,
+    theme: atlas.theme,
     atlas,
     terrainTypes: TerrainTypes.parse(scene.cache.json.get(CONTENT.terrainTypes)),
     kinds: KindRegistry.parse(scene.cache.json.get(CONTENT.kinds)),

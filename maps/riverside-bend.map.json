@@ -12,7 +12,8 @@
   "themes": {
     "default": "summer",
     "supported": [
-      "summer"
+      "summer",
+      "winter"
     ]
   },
   "terrain": {

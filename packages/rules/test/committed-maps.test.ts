@@ -3,7 +3,7 @@
 // un-cleared map being merged. Lives in rules' tests but drives the sim package's clear check.
 import { readFileSync, readdirSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { EnemyRegistry, KindRegistry, TerrainTypes, ZoneTypes, parseMap, parseWaves, printMap, printWaves } from '@tdmm/map-format';
+import { AtlasManifest, EnemyRegistry, KindRegistry, TerrainTypes, ThemeDoc, ZoneTypes, parseMap, parseWaves, printMap, printWaves } from '@tdmm/map-format';
 import { runClearCheck } from '@tdmm/sim';
 import { mapStateFromDoc, type Registries } from '../src/index.ts';
 
@@ -34,6 +34,19 @@ describe('committed maps', () => {
       const result = runClearCheck(mapStateFromDoc(doc), reg, waves);
       expect(result.problems.map((p) => `${p.code}: ${p.message}`)).toEqual([]);
       expect(waves.clearCheck, 'no clear check: save the map in the editor or run "npm run clearcheck"').toEqual(result.record);
+    });
+
+    it(`${file} ships only themes that have art for everything it uses`, () => {
+      const doc = parseMap(readFileSync(new URL(`maps/${file}`, root), 'utf8'));
+      const usedTerrain = [...new Set(Object.values(doc.terrain.legend))];
+      const usedKinds = [...new Set(doc.objects.map((o) => o.kind))];
+      expect(doc.themes.supported).toContain(doc.themes.default);
+      for (const themeId of doc.themes.supported) {
+        const theme = ThemeDoc.parse(json(`themes/${themeId}.theme.json`));
+        const atlas = AtlasManifest.parse(json(`assets/atlases/${theme.atlas}.atlas.json`));
+        expect(usedTerrain.filter((k) => !atlas.theme.terrain[k]), `${themeId}: terrain without art`).toEqual([]);
+        expect(usedKinds.filter((k) => !atlas.theme.objects[k]), `${themeId}: objects without art`).toEqual([]);
+      }
     });
   }
 });

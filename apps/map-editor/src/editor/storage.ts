@@ -27,6 +27,21 @@ async function json<T>(res: Response): Promise<T> {
 }
 
 export const listMaps = () => fetch('/__tdmm/maps').then((r) => json<MapListEntry[]>(r));
+
+export interface ThemeListEntry {
+  id: string;
+  name: string;
+  inherits: string | null;
+  /** Whether assets/atlases has a built atlas for it (run "npm run art" if not). */
+  built: boolean;
+  chain: string[];
+  /** Terrain kinds and stamp kinds the theme has art for. */
+  terrain: string[];
+  objects: string[];
+  fallbacks: number;
+  missing: string[];
+}
+export const listThemes = () => fetch('/__tdmm/themes').then((r) => json<ThemeListEntry[]>(r));
 export const loadMapFiles = (id: string) => fetch(`/__tdmm/map?id=${encodeURIComponent(id)}`).then((r) => json<LoadedFiles>(r));
 
 export function saveMapFiles(id: string, map: string, waves: string, expectedHash: string | null, force = false) {

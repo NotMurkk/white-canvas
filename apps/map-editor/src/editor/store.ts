@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from 'react';
 import type { Direction, JunctionPolicy, ObjectInstance, Problem, WavesDoc } from '@tdmm/map-format';
 import type { RoundStats } from '@tdmm/sim';
-import type { Autosave, MapListEntry } from './storage.ts';
+import type { Autosave, MapListEntry, ThemeListEntry } from './storage.ts';
 import type { TerrainMode, ToolId } from './tools.ts';
 
 /** UI state only. The map itself lives in the EditorDocument; this mirrors what panels show. */
@@ -28,7 +28,15 @@ export interface EditorUiState {
     /** True when the file on disk carries a record matching the current gameplay. */
     savedCurrent: boolean;
     summary?: string;
+    /** Hash of all gameplay data; identical in every theme by construction. */
+    fingerprint?: string;
   };
+  /** Theme being previewed (rendering only; the map's default is in themes.default). */
+  theme: string;
+  themes: ThemeListEntry[];
+  mapThemes: { default: string; supported: string[] };
+  /** Per supported theme: art this map needs that the theme lacks (or why it can't be used). */
+  themeCoverage: { id: string; ok: boolean; notes: string[] }[];
   stats: RoundStats[] | null;
   stamps: { id: string; name: string; color: string; category: string; w: number; h: number }[];
   enemies: { id: string; name: string; color: string; flying: boolean }[];

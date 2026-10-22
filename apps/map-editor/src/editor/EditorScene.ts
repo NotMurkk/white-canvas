@@ -10,6 +10,8 @@ export const EDITOR_SCENE_KEY = 'editor';
 export interface EditorSceneData {
   map: MapDoc;
   waves: WavesDoc;
+  /** Theme to render with; defaults to the map's default theme. */
+  theme?: string;
   onReady: (scene: EditorScene) => void;
   onError: (error: Error) => void;
 }
@@ -58,14 +60,18 @@ export class EditorScene extends Phaser.Scene {
     this.overlaysDirty = true;
   }
 
+  get themeId() {
+    return this.params.theme ?? this.params.map.themes.default;
+  }
+
   preload() {
-    preloadTheme(this, this.params.map.themes.default);
+    preloadTheme(this, this.themeId);
     this.load.once(Phaser.Loader.Events.FILE_LOAD_ERROR, (file: Phaser.Loader.File) => this.params.onError(new Error(`could not load ${file.url}`)));
   }
 
   create() {
     try {
-      this.assets = themeAssets(this, this.params.map.themes.default);
+      this.assets = themeAssets(this, this.themeId);
       this.doc = new EditorDocument(this.params.map, this.params.waves, this.assets);
       this.view = new MapView(this, this.doc.state, this.assets);
     } catch (e) {
@@ -115,6 +121,29 @@ export class EditorScene extends Phaser.Scene {
       this.focusMark.lineStyle(3, 0xffffff, a);
       for (const [x, y] of this.focusCells) this.focusMark.strokeRect(x * ts - 2, y * ts - 2, ts + 4, ts + 4);
     }
+  }
+
+  /**
+   * Re-renders the same document with another theme. The document, its undo history and the
+   * selection are untouched: a theme is only art, so nothing about the map changes.
+   */
+  async switchTheme(themeId: string): Promise<void> {
+    if (themeId === this.themeId) return;
+    preloadTheme(this, themeId);
+    if (this.load.list.size > 0 || this.load.isLoading()) {
+      await new Promise<void>((resolve, reject) => {
+        this.load.once(Phaser.Loader.Events.COMPLETE, () => resolve());
+        this.load.once(Phaser.Loader.Events.FILE_LOAD_ERROR, (file: Phaser.Loader.File) => reject(new Error(`could not load ${file.url}; run "npm run art"`)));
+        this.load.start();
+      });
+    }
+    const assets = themeAssets(this, themeId);
+    this.view.destroy();
+    this.params = { ...this.params, theme: themeId };
+    this.assets = assets;
+    this.view = new MapView(this, this.doc.state, assets);
+    this.ghostImage.setTexture(atlasTextureKey(assets.atlas.id));
+    this.overlaysDirty = true;
   }
 
   applyOptions() {

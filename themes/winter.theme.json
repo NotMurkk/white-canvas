@@ -1,0 +1,21 @@
+{
+  "format": "ptd-theme",
+  "schemaVersion": 1,
+  "id": "winter",
+  "name": "Winter",
+  "inherits": "summer",
+  "atlas": "winter",
+  "baseFill": "placeholder-winter/ground:snow",
+  "terrain": {
+    "water": { "autotile": "placeholder-winter/water" },
+    "path_dirt": { "autotile": "placeholder-winter/path_snow" }
+  },
+  "objects": {
+    "tree_round": "placeholder-winter/stamps@tree_round",
+    "tree_pine": "placeholder-winter/stamps@tree_pine",
+    "house_small": "placeholder-winter/stamps@house_small",
+    "bush": "placeholder-winter/stamps@bush",
+    "rock": "placeholder-winter/stamps@rock",
+    "flowers": "placeholder-winter/stamps@flowers"
+  }
+}

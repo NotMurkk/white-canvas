@@ -9,7 +9,7 @@ The design and the reasons behind it are in [reports/Tower defense map editor de
 ```sh
 npm install
 npm run dev:editor   # editor at http://localhost:5173/?map=<id>
-npm run dev:game     # reference game at http://localhost:5174/?map=/maps/<id>.map.json
+npm run dev:game     # reference game at http://localhost:5174/?map=/maps/<id>.map.json&theme=winter
 npm test             # unit tests + the committed-maps gate
 npm run typecheck
 npm run art          # regenerate placeholder art, rebuild theme atlases, regenerate credits
@@ -47,6 +47,19 @@ The **Inspect** tab edits what you selected:
 
 The **Check** tab starts with the **clear check**: every round is simulated with no towers, and every enemy must spawn and reach an exit. Saving stamps a passing result, with a hash of all gameplay data, into the waves file. The top bar shows **✓ Cleared** or **Draft**. Below the clear check, the Check tab lists every problem, such as dead ends, loops, an exit in the middle of the path, objects blocking the path, water under the path, or a wave pointing at a route that no longer exists. Click a problem to jump to it. The **Waves** tab edits rounds and groups (enemy, count, start, interval, spawn, and route or "Alternate").
 
+**Seasonal themes.**
+- The theme picker in the top bar previews the map in any theme. Only the art changes: the document, the undo history and the gameplay fingerprint stay the same.
+- The Themes section of the Check tab picks which themes ship with the map and which is the default. It also lists any art a theme lacks for this map.
+- Shipping a theme is a metadata change, so the clear-check stamp stays valid.
+
+A theme (`themes/<id>.theme.json`) can `inherit` another theme and override only what changes; `winter` inherits `summer`. Any asset reference can be a fallback list, tried in order when atlases are built:
+
+```json
+"water": { "autotile": ["da-slaqueen-811989710/free_water_autotile", "placeholder-winter/water"] }
+```
+
+Until that pack is imported, the placeholder is used; `npm run art` reports every fallback. Each theme builds its own atlas (`assets/atlases/<id>.png`), which records the fully resolved theme and a hash of its inputs. A test fails if a committed atlas is stale or a theme lacks art for something a map uses.
+
 **Saving.**
 - Saving writes `maps/<id>.map.json` and `maps/<id>.waves.json` through the editor's dev server.
 - The server re-validates the files and refuses one that changed on disk since you opened it (it offers to overwrite).
@@ -67,11 +80,11 @@ packages/rules        map state, stamp placement, buildable cells, range multipl
 packages/sim          deterministic wave simulation, branch policies, balance stats, gameplay hash, clear check
 packages/map-runtime  logical map + theme + atlas -> Tiled-shaped JSON in memory -> Phaser layers, stamps, markers
 content/              terrain-types.json, kinds.json (stamps), enemies.json, zones.json: shared gameplay meaning
-themes/               *.theme.json: visual mapping only (summer for now)
+themes/               *.theme.json: visual mapping only; winter inherits summer
 maps/                 *.map.json + *.waves.json: committed maps
-assets/packs/         redistributable packs with provenance (placeholder art for now)
+assets/packs/         redistributable packs with provenance (placeholder summer and winter art for now)
 assets/raw/           git-ignored raw downloads turned into packs by the importer
-assets/atlases/       generated per-theme atlases + credits.json
+assets/atlases/       generated per-theme atlases (with their resolved theme) + credits.json
 asset-catalog/        the 711-link tileset catalog and the starter download checklist
 tools/                art generation, atlas build, pack importer, credits, dev-server plugins
 ```
@@ -101,8 +114,16 @@ tools/                art generation, atlas build, pack importer, credits, dev-s
   - Wave timeline and balance charts.
   - Shared deterministic simulation, used by the game, the editor's clear check and the CI gate.
   - Map schema v2, with a tested v1 migration (`fixtures/maps/v1`).
-- **Next, Phase 3 (seasonal themes).**
-  - Winter theme packs with inheritance and fallbacks.
-  - Theme switcher in the editor.
-  - Per-theme atlases.
-  - Gameplay hash display, so reskins provably change nothing.
+- **Phase 3 (done).**
+  - Winter theme with inheritance and fallback lists.
+  - Placeholder winter pack, with stamps winterized from the summer ones so footprints match exactly.
+  - One atlas per theme, recording the resolved theme and a hash of its inputs.
+  - Theme switcher and per-theme coverage in the editor.
+  - The gameplay fingerprint, shown in the editor, never changes with the theme.
+- **Next, Phase 4 (Mario Maker feel).**
+  - Forgiveness snapping, a test-tower stamp with a coverage heatmap.
+  - Marquee copy and paste, palette search and pinning.
+  - Last-run enemy trails in playtest.
+- **Alongside: real art.**
+  - Import the starter packs (`asset-catalog/starter-packs.md`).
+  - Put them first in the themes' fallback lists.

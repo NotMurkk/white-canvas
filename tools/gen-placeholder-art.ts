@@ -193,3 +193,68 @@ for (const [name, png] of [['water.png', water], ['path_dirt.png', pathDirt], ['
   writeFileSync(new URL(name, OUT), PNG.sync.write(png));
   console.log(`wrote assets/packs/placeholder/${name} (${png.width}x${png.height})`);
 }
+
+// ---- winter pack (assets/packs/placeholder-winter): same layouts, winter art -------------------
+// Stamps are "winterized" from the summer sheet so every footprint matches exactly: exposed tops
+// get a snow cap, foliage is cooled and darkened. Ground, water and path are drawn fresh.
+const WINTER_OUT = new URL('../assets/packs/placeholder-winter/', import.meta.url);
+
+function winterize(src: PNG): PNG {
+  const out = new PNG({ width: src.width, height: src.height });
+  src.data.copy(out.data);
+  const at = (x: number, y: number) => (y * src.width + x) * 4;
+  const alpha = (x: number, y: number) => (x < 0 || y < 0 || x >= src.width || y >= src.height ? 0 : src.data[at(x, y) + 3]!);
+  for (let y = 0; y < src.height; y++) {
+    for (let x = 0; x < src.width; x++) {
+      const i = at(x, y);
+      if (src.data[i + 3]! < 200) continue;
+      const [r, g, b] = [src.data[i]!, src.data[i + 1]!, src.data[i + 2]!];
+      const isOutline = r + g + b < 140;
+      // snow settles on anything with open sky within 3 px above it
+      const exposed = [1, 2, 3].some((d) => alpha(x, y - d) < 200) && !(alpha(x, y - 1) >= 200 && src.data[at(x, y - 1)]! + src.data[at(x, y - 1) + 1]! + src.data[at(x, y - 1) + 2]! < 140 && alpha(x, y - 2) >= 200);
+      if (!isOutline && exposed && b < 200) {
+        const shade = (x + y) % 5 === 0 ? 228 : 246;
+        out.data.set([shade - 8, shade - 2, 255, 255], i);
+      } else if (!isOutline && g > r && g > b) {
+        out.data.set([Math.round(r * 0.55 + 20), Math.round(g * 0.62 + 18), Math.round(b * 0.7 + 50), 255], i); // cold foliage
+      }
+    }
+  }
+  return out;
+}
+
+const winterWater = autotile(4, {
+  outline: hex('#2a4060'),
+  rim: hex('#e8f4ff'),
+  cornerRadius: 5,
+  fill: (x, y, f) => {
+    const u = (x + f) % 8; // slower drift than summer
+    const v = y % 8;
+    if (v === 3 && u >= 2 && u <= 4) return hex('#9cc4e4');
+    if ((x * 5 + y * 3) % 16 === 0) return hex('#d8ecff'); // drifting ice flecks
+    return hex('#3c6c9c');
+  },
+});
+
+const snowSpeckle = new Set(['2,1', '6,4', '1,6', '5,7']);
+const pathSnow = autotile(1, {
+  outline: hex('#7888a4'),
+  rim: hex('#aab8cc'),
+  cornerRadius: 3,
+  fill: (x, y) => (snowSpeckle.has(`${x % 8},${y % 8}`) ? hex('#b4c2d6') : hex('#cad6e6')),
+});
+
+const drift = new Set(['3,4', '4,4', '10,11', '11,11', '12,11', '6,13']);
+const winterGround = image(8 * T, T, (x, y) => {
+  const tile = Math.floor(x / T);
+  const k = `${x % T},${y % T}`;
+  if (tile === 0) return drift.has(k) ? hex('#d4e0f0') : hex('#f2f6fc');
+  if (tile === 1) return drift.has(`${(x + 6) % T},${(y + 5) % T}`) ? hex('#d4e0f0') : hex('#eef3fa');
+  return CLEAR;
+});
+
+mkdirSync(WINTER_OUT, { recursive: true });
+for (const [name, png] of [['water.png', winterWater], ['path_snow.png', pathSnow], ['ground.png', winterGround], ['stamps.png', winterize(stamps)]] as const) {
+  writeFileSync(new URL(name, WINTER_OUT), PNG.sync.write(png));
+  console.log(`wrote assets/packs/placeholder-winter/${name} (${png.width}x${png.height})`);
+}

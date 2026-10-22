@@ -86,5 +86,35 @@
       "file": "assets/packs/placeholder/water.png",
       "pack": "placeholder"
     }
-  ]
+  ],
+  "theme": {
+    "id": "summer",
+    "name": "Summer",
+    "chain": [
+      "summer"
+    ],
+    "baseFill": "placeholder/ground:grass",
+    "terrain": {
+      "grass": {
+        "base": true
+      },
+      "path_dirt": {
+        "autotile": "placeholder/path_dirt"
+      },
+      "water": {
+        "autotile": "placeholder/water"
+      }
+    },
+    "objects": {
+      "bush": "placeholder/stamps@bush",
+      "flowers": "placeholder/stamps@flowers",
+      "house_small": "placeholder/stamps@house_small",
+      "rock": "placeholder/stamps@rock",
+      "tree_pine": "placeholder/stamps@tree_pine",
+      "tree_round": "placeholder/stamps@tree_round"
+    },
+    "fallbacks": [],
+    "missing": []
+  },
+  "sourceHash": "574f5b40a69539f0d41a44bd"
 }

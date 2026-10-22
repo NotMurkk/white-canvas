@@ -205,3 +205,15 @@ code { font: 12px ui-monospace, monospace; color: #ffd98a; }
 .branches td { padding: 4px; border-top: 1px solid var(--line); vertical-align: top; }
 .commit-field input { font: inherit; font-size: 12px; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 5px; padding: 3px 5px; }
 .commit-field input.invalid { border-color: var(--error); }
+
+/* ---- Phase 3: themes ---- */
+.theme-select { max-width: 150px; }
+.themes-section { margin-top: 16px; }
+.fingerprint { display: grid; gap: 2px; padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-2); margin-bottom: 8px; }
+.fingerprint code { font-size: 13px; }
+.theme-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.theme-table th { font-size: 10px; text-transform: uppercase; color: var(--muted); text-align: left; padding: 2px 4px; }
+.theme-table td { padding: 5px 4px; border-top: 1px solid var(--line); vertical-align: top; }
+.theme-table tr.current td:first-child strong { color: var(--accent); }
+.theme-notes { margin: 4px 0 0; padding-left: 16px; color: var(--muted); }
+.theme-notes.bad, .bad-text { color: var(--warn); }

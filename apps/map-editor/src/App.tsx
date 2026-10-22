@@ -65,7 +65,15 @@ export function App() {
           <button className={s.dirty ? 'save dirty' : 'save'} onClick={() => void editor.save()} disabled={!editing || s.saveState === 'saving'} title="Save to maps/ (Ctrl+S)">
             {saveLabel}
           </button>
-          <a className="button" href={`${GAME_URL}?map=${encodeURIComponent(`/maps/${s.mapId}.map.json`)}`} target="_blank" rel="noreferrer" title="Open the saved file in the reference game">
+          <select className="theme-select" value={s.theme} onChange={(e) => void editor.switchTheme(e.target.value)} disabled={!editing} title="Preview theme (art only)" aria-label="Preview theme">
+            {s.themes.map((t) => (
+              <option key={t.id} value={t.id} disabled={!t.built}>
+                {t.name}
+                {s.mapThemes.supported.includes(t.id) ? '' : ' (not shipped)'}
+              </option>
+            ))}
+          </select>
+          <a className="button" href={`${GAME_URL}?map=${encodeURIComponent(`/maps/${s.mapId}.map.json`)}&theme=${encodeURIComponent(s.theme)}`} target="_blank" rel="noreferrer" title="Open the saved file in the reference game">
             Saved in game ↗
           </a>
           {s.mode === 'edit' ? (

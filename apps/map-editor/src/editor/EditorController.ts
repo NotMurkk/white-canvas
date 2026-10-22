@@ -6,7 +6,7 @@ import { clearCheckIsCurrent, runClearCheck } from '@tdmm/sim';
 import type { Change } from './document.ts';
 import { EditorScene, EDITOR_SCENE_KEY, type Ghost } from './EditorScene.ts';
 import { play, setMuted } from './sound.ts';
-import { SaveConflictError, clearAutosaves, latestAutosave, listMaps, loadMapFiles, saveMapFiles, writeAutosave } from './storage.ts';
+import { SaveConflictError, clearAutosaves, latestAutosave, listMaps, listThemes, loadMapFiles, saveMapFiles, writeAutosave } from './storage.ts';
 import { Store, type EditorUiState, type Inspect, type Selection } from './store.ts';
 import * as T from './tools.ts';
 
@@ -42,6 +42,10 @@ export class EditorController {
     airDraft: null,
     clear: { status: 'idle', problems: [], savedCurrent: false },
     stats: null,
+    theme: '',
+    themes: [],
+    mapThemes: { default: '', supported: [] },
+    themeCoverage: [],
     stamps: [],
     enemies: [],
     hover: null,
@@ -121,6 +125,7 @@ export class EditorController {
     window.addEventListener('beforeunload', beforeUnload);
     this.cleanups.push(() => window.removeEventListener('beforeunload', beforeUnload));
     void this.refreshMapList();
+    void this.refreshThemes();
     void this.openMap(mapId);
   }
 
@@ -219,6 +224,7 @@ export class EditorController {
       const data = {
         map,
         waves,
+        theme: map.themes.default,
         onReady: (scene: EditorScene) => {
           this.onSceneReady(scene);
           resolve();
@@ -274,6 +280,7 @@ export class EditorController {
       airDraft: null,
       stats: null,
       clear: { status: 'idle', problems: [], savedCurrent: false },
+      theme: scene.themeId,
     });
     this.syncStore();
   }
@@ -309,6 +316,8 @@ export class EditorController {
       dirty: doc.dirty,
       mapName: doc.base.name,
       inspect: this.buildInspect(prev.selection),
+      mapThemes: { default: doc.base.themes.default, supported: [...doc.base.themes.supported] },
+      themeCoverage: this.themeCoverage(),
     });
     this.scheduleClearCheck();
     this.scene?.setSelection(prev.selection, prev.airDraft);
@@ -329,7 +338,7 @@ export class EditorController {
       const r = runClearCheck(doc.state, doc.reg, doc.waves);
       const savedCurrent = !doc.dirty && !!doc.loadedClearCheck && clearCheckIsCurrent(doc.state, doc.reg, { ...doc.waves, clearCheck: doc.loadedClearCheck });
       const summary = r.record ? `${r.record.rounds} rounds · ${r.record.enemies} enemies · ${r.record.durationSec}s with no towers` : undefined;
-      this.store.set({ clear: { status: r.passed ? 'passed' : 'failed', problems: r.problems, savedCurrent, summary }, stats: r.stats.length ? r.stats : null });
+      this.store.set({ clear: { status: r.passed ? 'passed' : 'failed', problems: r.problems, savedCurrent, summary, fingerprint: r.gameplayHash }, stats: r.stats.length ? r.stats : null });
     }, 400);
   }
 
@@ -380,7 +389,9 @@ export class EditorController {
     clearTimeout(this.autosaveTimer);
     this.autosaveTimer = setTimeout(() => {
       const doc = this.scene?.doc;
-      if (!doc?.dirty) return;
+      if (!doc) return;
+      // Undoing back to the saved state leaves nothing to recover; don't offer a stale copy later.
+      if (!doc.dirty) return void clearAutosaves(doc.base.id);
       const { map, waves } = doc.toDocs();
       void writeAutosave({ mapId: map.id, baseHash: this.baseHash, map: printMap(map), waves: printWaves(waves) });
     }, 1200);
@@ -446,6 +457,75 @@ export class EditorController {
   newGroupId(prefix: string) {
     const taken = this.scene?.doc.waves.rounds.flatMap((r) => r.groups.map((g) => g.id)) ?? [];
     return newId(prefix, taken);
+  }
+
+  // ---- themes -----------------------------------------------------------------------------------
+
+  async refreshThemes() {
+    try {
+      this.store.set({ themes: await listThemes() });
+      this.store.set({ themeCoverage: this.themeCoverage() });
+    } catch {
+      // the theme list is a convenience
+    }
+  }
+
+  /** Previews the map in another theme. Only the art changes; the document and undo history stay. */
+  async switchTheme(id: string) {
+    const scene = this.scene;
+    if (!scene || id === this.store.get().theme) return;
+    try {
+      await scene.switchTheme(id);
+      this.store.set({ theme: id });
+      this.setOverlay({});
+      const fp = this.store.get().clear.fingerprint;
+      this.toast(`Showing the ${this.store.get().themes.find((t) => t.id === id)?.name ?? id} theme. Gameplay fingerprint unchanged${fp ? ` (${fp.slice(0, 8)})` : ''}.`, 'ok');
+    } catch (e) {
+      this.toast((e as Error).message, 'warn');
+    }
+  }
+
+  /** Map metadata: which themes ship for this map. Not gameplay, so the clear check stays valid. */
+  setThemeSupported(id: string, on: boolean) {
+    const doc = this.scene?.doc;
+    if (!doc) return;
+    const t = doc.base.themes;
+    if (!on && id === t.default) {
+      this.toast('That is the default theme. Pick another default first.', 'warn');
+      return;
+    }
+    t.supported = on ? [...new Set([...t.supported, id])].sort() : t.supported.filter((s) => s !== id);
+    doc.markDirty();
+    this.afterCommit();
+  }
+
+  setDefaultTheme(id: string) {
+    const doc = this.scene?.doc;
+    if (!doc) return;
+    doc.base.themes.default = id;
+    if (!doc.base.themes.supported.includes(id)) doc.base.themes.supported = [...doc.base.themes.supported, id].sort();
+    doc.markDirty();
+    this.afterCommit();
+  }
+
+  /** For each supported theme: does it have art for every terrain and stamp this map uses? */
+  private themeCoverage(): EditorUiState['themeCoverage'] {
+    const doc = this.scene?.doc;
+    const themes = this.store.get().themes;
+    if (!doc || !themes.length) return [];
+    const usedTerrain = [...new Set(doc.state.terrain.cells)].map((i) => doc.state.terrain.kinds[i]!);
+    const usedKinds = [...new Set(doc.state.objects.map((o) => o.kind))];
+    return doc.base.themes.supported.map((id) => {
+      const t = themes.find((x) => x.id === id);
+      if (!t) return { id, ok: false, notes: [`No themes/${id}.theme.json.`] };
+      if (!t.built) return { id, ok: false, notes: ['Atlas not built yet. Run "npm run art".'] };
+      const notes = [
+        ...usedTerrain.filter((k) => !t.terrain.includes(k)).map((k) => `No art for terrain "${k}" (plain colour).`),
+        ...usedKinds.filter((k) => !t.objects.includes(k)).map((k) => `No art for "${doc.reg.kinds[k]?.name ?? k}" (plain block).`),
+      ];
+      if (t.fallbacks) notes.push(`${t.fallbacks} slot${t.fallbacks > 1 ? 's use' : ' uses'} fallback art.`);
+      return { id, ok: notes.length === 0 || (notes.length === 1 && !!t.fallbacks), notes };
+    });
   }
 
   // ---- selection and inspector ------------------------------------------------------------------
@@ -545,7 +625,7 @@ export class EditorController {
   play() {
     if (!this.game || !this.scene || this.store.get().mode === 'play') return;
     const { map, waves } = this.scene.doc.toDocs();
-    const data: GameSceneData = { map, waves, startRound: this.store.get().startRound, onExit: () => this.stopPlay() };
+    const data: GameSceneData = { map, waves, theme: this.store.get().theme || undefined, startRound: this.store.get().startRound, onExit: () => this.stopPlay() };
     this.cancelGesture();
     this.scene.scene.sleep();
     this.game.scene.start(GAME_SCENE_KEY, data);
