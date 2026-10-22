@@ -12,7 +12,7 @@ export interface BalancePanelProps {
   enemies: Record<string, { name: string; color: string }>;
   startCash: number;
   /** Optional: clicking a round in any chart selects it (I'll use it to scroll the waves panel). */
-  onPickRound?: (roundIndex: number) => void;
+  onPickRound?: ((roundIndex: number) => void) | undefined;
   /**
    * Optional: true while new stats are being computed. With `stats` null and this set, the last
    * charts stay up (dimmed) instead of the empty message, so the panel doesn't flash on every edit.
@@ -160,18 +160,18 @@ interface RoundChartProps {
   id: ChartId;
   title: string;
   note: ReactNode;
-  legend?: ReactNode;
+  legend?: ReactNode | undefined;
   L: Layout;
   max: number;
   yFormat: (v: number) => string;
   marks: (y: (v: number) => number) => ReactNode;
-  defs?: ReactNode;
+  defs?: ReactNode | undefined;
   /** The one direct label: the extreme (or the end) of the series. */
-  peak?: { i: number; value: number; text: string };
+  peak?: { i: number; value: number; text: string } | undefined;
   tooltip: (i: number) => ReactNode;
   hover: Hover;
   setHover: (h: Hover) => void;
-  onPick?: (i: number) => void;
+  onPick?: ((i: number) => void) | undefined;
   describe: string;
 }
 

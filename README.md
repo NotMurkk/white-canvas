@@ -4,14 +4,16 @@ A Mario Maker-style map editor for a 2D top-down tower defense game built with P
 
 The design and the reasons behind it are in [reports/Tower defense map editor design.md](reports/Tower%20defense%20map%20editor%20design.md). The research notes it draws on are in `research_notes/`.
 
+This repo is a [Lovable](https://lovable.dev/projects/eb61fcae-2889-4f68-a07b-b8d401d798df) project (TanStack Start). Pushes to `main` sync into Lovable, and Lovable's edits are committed back here. Don't force-push or rewrite pushed history (see `AGENTS.md`).
+
 ## Run it
 
 ```sh
-npm install
-npm run dev:editor   # editor at http://localhost:5173/?map=<id>
-npm run dev:game     # reference game at http://localhost:5174/?map=/maps/<id>.map.json&theme=winter
+npm install          # or: bun install (Lovable uses bun; bun.lock is the lockfile)
+npm run dev          # editor at http://localhost:<port>/?map=<id>, reference game at /play?map=/maps/<id>.map.json&theme=winter
 npm test             # unit tests + the committed-maps gate
-npm run typecheck
+npm run typecheck    # Lovable's tsconfig.json (src/) and tsconfig.tdmm.json (editor, packages, tools)
+npm run build        # production build (Cloudflare Workers via nitro), as Lovable publishes it
 npm run art          # regenerate placeholder art, rebuild theme atlases, regenerate credits
 npm run packs:objects -- <pack> <asset> --out preview.png   # list the objects on a sheet, to name stamp regions
 npm run packs:import # turn downloads/ into packs (see asset-catalog/starter-packs.md)
@@ -77,14 +79,16 @@ The first entry that's available wins. The themes put the real Pokémon fan tile
 - The server re-validates the files and refuses one that changed on disk since you opened it (it offers to overwrite).
 - It writes atomically and keeps the previous version in `.tdmm-backup/`.
 - Unsaved work is autosaved to the browser every couple of seconds and offered back after a crash or reload, including maps that were never saved.
+- **The published (hosted) app has no dev server.** It opens the maps that were in the repo when it was built, and Save downloads `<id>.map.json` and `<id>.waves.json` for you to put in `maps/` and commit. Saving straight from the hosted editor (to GitHub or a database) is a later step.
 
 **Errors and failed clear checks** never stop you saving work in progress. But the game refuses a map with errors, and `npm test` fails if any committed map has an error or lacks a clear-check stamp that matches its current gameplay. Renames and art changes don't affect the stamp. So an unplayable or un-checked map can't be merged.
 
 ## Layout
 
 ```
+src/                  the Lovable app (TanStack Start): / mounts the editor, /play the reference game, both browser-only
 apps/game             reference Phaser 4 game: GameScene loads a map + waves from a URL or from memory, plays rounds
-apps/map-editor       React shell + the same Phaser runtime; tools run on DOM pointer events
+apps/map-editor       the editor: React shell + the same Phaser runtime; tools run on DOM pointer events
 packages/autotile     Essentials' RMXP autotile tables, neighbour resolver, autotile expander (no Phaser)
 packages/map-format   Zod schemas (map, waves, themes, packs, atlases, content), grid encodings, migrations, printers
 packages/pathing      directed path cells: stroke editing, route compiler, validation, route geometry
@@ -98,7 +102,7 @@ assets/packs/         redistributable packs with provenance (the generated place
 assets/raw/           git-ignored raw downloads turned into packs by the importer (the real tilesets)
 assets/atlases/       generated per-theme atlases (with their resolved theme) + credits.json
 asset-catalog/        the 711-link tileset catalog and the starter download checklist
-tools/                art generation, atlas build, pack importer, credits, dev-server plugins
+tools/                art generation, atlas build, pack importer, credits, Vite plugins (data files, dev save endpoints)
 ```
 
 **The one rule:** maps store gameplay meaning, such as the terrain kind per cell, path directions and object kinds. The art is always derived from that through autotiling and the theme. That keeps undo simple, lets neighbours reshape automatically, and means a winter theme can never change gameplay.
@@ -138,7 +142,9 @@ tools/                art generation, atlas build, pack importer, credits, dev-s
   - Box-select copy, cut, paste and delete with a layer filter, a validated paste ghost and a clipboard shared across tabs.
   - Palette search, pins and recents; 1–9 follow the order shown.
   - Last-run trails and leak markers from playtests.
+- **Hosting (done).** The editor runs inside the Lovable app: `/` is the editor, `/play` the reference game, and production builds include the data files.
 - **Next.**
+  - Hosted saving: commit maps to GitHub (keeps the CI gate) or store them in Lovable's database.
   - Budget meter and micro-animations, the rest of the report's Phase 4 list.
   - A greedy coverage bot for the clear check, so "beatable" means more than "every enemy can walk to an exit".
 - **Real art (Batch A done).**

@@ -6,19 +6,18 @@ import { Palette } from './components/Palette.tsx';
 import { ProblemsPanel } from './components/ProblemsPanel.tsx';
 import { WavesPanel } from './components/WavesPanel.tsx';
 import { EditorController } from './editor/EditorController.ts';
+import { HOSTED } from './editor/storage.ts';
 import { useStore } from './editor/store.ts';
 
-const initialMap = new URLSearchParams(location.search).get('map') ?? 'phase0-meadow';
-const GAME_URL = `${location.protocol}//${location.hostname}:5174/`;
-
-export function App() {
+/** `gameUrl` is the page that plays a saved map (the app's /play route). */
+export function App({ gameUrl }: { gameUrl: string }) {
   const editor = useMemo(() => new EditorController(), []);
   const host = useRef<HTMLDivElement>(null);
   const s = useStore(editor.store, (st) => st);
 
   useEffect(() => {
     if (!host.current) return;
-    editor.mount(host.current, initialMap);
+    editor.mount(host.current, new URLSearchParams(location.search).get('map') ?? 'phase0-meadow');
     return () => editor.destroy();
   }, [editor]);
 
@@ -62,7 +61,7 @@ export function App() {
           <button onClick={() => editor.redo()} disabled={!s.canRedo || !editing} title="Redo (Ctrl+Y)">
             Redo
           </button>
-          <button className={s.dirty ? 'save dirty' : 'save'} onClick={() => void editor.save()} disabled={!editing || s.saveState === 'saving'} title="Save to maps/ (Ctrl+S)">
+          <button className={s.dirty ? 'save dirty' : 'save'} onClick={() => void editor.save()} disabled={!editing || s.saveState === 'saving'} title={HOSTED ? 'Download the map and waves files to put in maps/ (Ctrl+S)' : 'Save to maps/ (Ctrl+S)'}>
             {saveLabel}
           </button>
           <select className="theme-select" value={s.theme} onChange={(e) => void editor.switchTheme(e.target.value)} disabled={!editing} title="Preview theme (art only)" aria-label="Preview theme">
@@ -73,7 +72,7 @@ export function App() {
               </option>
             ))}
           </select>
-          <a className="button" href={`${GAME_URL}?map=${encodeURIComponent(`/maps/${s.mapId}.map.json`)}&theme=${encodeURIComponent(s.theme)}`} target="_blank" rel="noreferrer" title="Open the saved file in the reference game">
+          <a className="button" href={`${gameUrl}?map=${encodeURIComponent(`/maps/${s.mapId}.map.json`)}&theme=${encodeURIComponent(s.theme)}`} target="_blank" rel="noreferrer" title="Open the saved file in the reference game">
             Saved in game ↗
           </a>
           {s.mode === 'edit' ? (

@@ -15,7 +15,7 @@ export interface GameSceneData {
   waves?: WavesDoc | unknown | null;
   /** maps/<id>.map.json; the waves file next to it is loaded too, if present. */
   mapUrl?: string;
-  theme?: string;
+  theme?: string | undefined;
   /** 0-based round to start from ("play from wave N"). */
   startRound?: number;
   /** Called when the player presses Esc; the editor uses it to return from playtest. */
@@ -45,7 +45,7 @@ export class GameScene extends Phaser.Scene {
   private params: GameSceneData = {};
   view?: MapView;
   map?: MapDoc;
-  waves?: WavesDoc;
+  waves?: WavesDoc | undefined;
   sim?: Simulation;
   private state!: MapState;
   private assets!: ThemeAssets;
@@ -142,7 +142,7 @@ export class GameScene extends Phaser.Scene {
     this.updateHud();
   }
 
-  update(_time: number, deltaMs: number) {
+  override update(_time: number, deltaMs: number) {
     const sim = this.sim;
     if (!sim || !this.view || this.paused || sim.phase === 'done') {
       this.updateHud();
@@ -261,9 +261,9 @@ const HUD_SCENE_KEY = 'game-hud';
 
 /** Screen-space overlay above the game scene; its camera never zooms. */
 class HudScene extends Phaser.Scene {
-  private text?: Phaser.GameObjects.Text;
-  private error?: Phaser.GameObjects.Text;
-  private pendingError?: string;
+  private text?: Phaser.GameObjects.Text | undefined;
+  private error?: Phaser.GameObjects.Text | undefined;
+  private pendingError?: string | undefined;
 
   constructor() {
     super(HUD_SCENE_KEY);

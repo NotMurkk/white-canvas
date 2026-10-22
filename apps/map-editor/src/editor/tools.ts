@@ -11,7 +11,7 @@ export type TerrainMode = 'pencil' | 'rect' | 'fill';
 
 export interface Outcome {
   changed: boolean;
-  refused?: string;
+  refused?: string | undefined;
   /** Id of an object that was just placed (for the pop animation). */
   placedId?: string;
 }
@@ -200,7 +200,7 @@ export interface Snap {
   /** True when the result is not the cell under the pointer. */
   snapped: boolean;
   /** Why the cell under the pointer was refused (when snapped). */
-  reason?: string;
+  reason?: string | undefined;
 }
 
 /** Where a stamp of `kind` would go for a click at `c`: there if it fits, else the nearest spot one cell away. */

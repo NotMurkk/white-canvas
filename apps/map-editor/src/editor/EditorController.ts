@@ -821,9 +821,15 @@ export class EditorController {
       doc.loadedClearCheck = check.record;
       await clearAutosaves(map.id);
       play('save');
-      this.store.set({ saveState: 'saved', saveMessage: `Saved maps/${map.id}.map.json` });
-      if (check.passed) this.toast(`Saved and cleared ✓ ${check.record!.rounds} rounds play out with no towers. Ready to commit.`, 'ok');
-      else this.toast(`Saved as a draft: ${check.problems[0]?.message ?? 'the clear check failed'} The repo test will refuse it until it clears.`, 'warn');
+      if (res.downloaded) {
+        // Hosted build: no dev server to write maps/, so the files were downloaded instead.
+        this.store.set({ saveState: 'saved', saveMessage: `Downloaded ${map.id}.map.json and ${map.id}.waves.json` });
+        this.toast(`Downloaded ${map.id}.map.json and .waves.json${check.passed ? ' (cleared ✓)' : ' (draft: fails the clear check)'}. Put them in maps/ in the repo to publish the map.`, check.passed ? 'ok' : 'warn');
+      } else {
+        this.store.set({ saveState: 'saved', saveMessage: `Saved maps/${map.id}.map.json` });
+        if (check.passed) this.toast(`Saved and cleared ✓ ${check.record!.rounds} rounds play out with no towers. Ready to commit.`, 'ok');
+        else this.toast(`Saved as a draft: ${check.problems[0]?.message ?? 'the clear check failed'} The repo test will refuse it until it clears.`, 'warn');
+      }
       this.syncStore();
       void this.refreshMapList();
     } catch (e) {

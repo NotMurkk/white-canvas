@@ -3,13 +3,10 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Reference Phaser game that loads maps the way the real game will. Stand-in until the editor moves into the game repo.",
-  "scripts": {
-    "dev": "vite --port 5174 --strictPort",
-    "build": "vite build"
-  },
+  "description": "Reference Phaser game that loads maps the way the real game will. Mounted at /play by the app; stand-in until the maps move into the real game.",
   "exports": {
-    "./scene": "./src/GameScene.ts"
+    "./scene": "./src/GameScene.ts",
+    "./start": "./src/start.ts"
   },
   "dependencies": {
     "@tdmm/map-format": "0.0.0",

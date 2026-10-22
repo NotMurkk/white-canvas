@@ -1,4 +1,5 @@
-:root {
+/* Scoped to the editor so it never restyles the host app's pages (its tokens share names like --muted). */
+.app {
   --bg: #14181d;
   --panel: #1d232a;
   --panel-2: #252c35;
@@ -17,7 +18,8 @@
 }
 
 * { box-sizing: border-box; }
-html, body, #root { margin: 0; height: 100%; background: var(--bg); color: var(--text); }
+html, body { margin: 0; height: 100%; }
+.app { background: var(--bg); color: var(--text); }
 
 .app {
   height: 100%;

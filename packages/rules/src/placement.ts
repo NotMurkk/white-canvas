@@ -52,9 +52,9 @@ export function occupancy(s: MapState, reg: Registries, ignoreId?: string): Int3
 
 export interface PlacementCheck {
   ok: boolean;
-  cells: (FootprintCell & { ok: boolean; reason?: string })[];
+  cells: (FootprintCell & { ok: boolean; reason?: string | undefined })[];
   /** First refusal reason, for the status bar / toast. */
-  reason?: string;
+  reason?: string | undefined;
 }
 
 /** Can `kindId` go at (x, y)? Per-cell results drive the green/red ghost. */

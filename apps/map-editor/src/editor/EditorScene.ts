@@ -13,17 +13,17 @@ export interface EditorSceneData {
   map: MapDoc;
   waves: WavesDoc;
   /** Theme to render with; defaults to the map's default theme. */
-  theme?: string;
+  theme?: string | undefined;
   onReady: (scene: EditorScene) => void;
   onError: (error: Error) => void;
 }
 
 /** `from` is the cell under the pointer when forgiveness snapping moved the drop elsewhere. */
 export type Ghost =
-  | { kind: 'cell'; x: number; y: number; color: number; from?: { x: number; y: number } }
+  | { kind: 'cell'; x: number; y: number; color: number; from?: { x: number; y: number } | undefined }
   | { kind: 'rect'; x0: number; y0: number; x1: number; y1: number; color: number }
-  | { kind: 'stamp'; x: number; y: number; stamp: string; from?: { x: number; y: number } }
-  | { kind: 'tower'; x: number; y: number; range: number; ok: boolean; from?: { x: number; y: number } }
+  | { kind: 'stamp'; x: number; y: number; stamp: string; from?: { x: number; y: number } | undefined }
+  | { kind: 'tower'; x: number; y: number; range: number; ok: boolean; from?: { x: number; y: number } | undefined }
   | null;
 
 /** Sequential ramp for the coverage heatmap: low = deep purple, high = bright yellow. */
@@ -138,7 +138,7 @@ export class EditorScene extends Phaser.Scene {
     this.params.onReady(this);
   }
 
-  update(time: number) {
+  override update(time: number) {
     if (this.overlaysDirty) {
       this.overlaysDirty = false;
       this.redrawOverlays();

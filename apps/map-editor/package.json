@@ -3,9 +3,9 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "scripts": {
-    "dev": "vite --port 5173 --strictPort",
-    "build": "vite build"
+  "description": "The map editor (React + Phaser). Mounted at / by the app, client-side only.",
+  "exports": {
+    "./app": "./src/entry.tsx"
   },
   "dependencies": {
     "@tdmm/autotile": "0.0.0",
@@ -15,13 +15,6 @@
     "@tdmm/pathing": "0.0.0",
     "@tdmm/rules": "0.0.0",
     "@tdmm/sim": "0.0.0",
-    "phaser": "4.2.1",
-    "react": "19.3.1",
-    "react-dom": "19.3.1"
-  },
-  "devDependencies": {
-    "@types/react": "19.3.0",
-    "@types/react-dom": "19.3.0",
-    "@vitejs/plugin-react": "6.1.2"
+    "phaser": "4.2.1"
   }
 }

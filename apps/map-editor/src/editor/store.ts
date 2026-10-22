@@ -9,7 +9,7 @@ import type { TerrainMode, ToolId } from './tools.ts';
 /** UI state only. The map itself lives in the EditorDocument; this mirrors what panels show. */
 export interface EditorUiState {
   status: 'loading' | 'ready' | 'error';
-  error?: string;
+  error?: string | undefined;
   mapId: string;
   mapName: string;
   mapSize: string;
@@ -29,9 +29,9 @@ export interface EditorUiState {
     problems: Problem[];
     /** True when the file on disk carries a record matching the current gameplay. */
     savedCurrent: boolean;
-    summary?: string;
+    summary?: string | undefined;
     /** Hash of all gameplay data; identical in every theme by construction. */
-    fingerprint?: string;
+    fingerprint?: string | undefined;
   };
   /** Theme being previewed (rendering only; the map's default is in themes.default). */
   theme: string;
@@ -50,7 +50,7 @@ export interface EditorUiState {
   canRedo: boolean;
   dirty: boolean;
   saveState: 'idle' | 'saving' | 'saved' | 'error' | 'conflict';
-  saveMessage?: string;
+  saveMessage?: string | undefined;
   showGrid: boolean;
   showArrows: boolean;
   showBuildable: boolean;

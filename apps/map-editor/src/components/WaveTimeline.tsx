@@ -11,7 +11,7 @@ export interface WaveTimelineProps {
   /** Called once when a drag (or keyboard nudge) ends, with the new start time (snapped to 0.5 s, min 0). */
   onMoveGroup: (groupIndex: number, startSec: number) => void;
   /** Optional: the no-tower clear time for this round, drawn as a marker. */
-  clearSec?: number;
+  clearSec?: number | undefined;
 }
 
 // ---------------------------------------------------------------------------------------------

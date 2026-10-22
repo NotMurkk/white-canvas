@@ -1,5 +1,12 @@
 // Client side of the editor's storage: the dev-server map endpoints, plus an IndexedDB autosave
 // ring so a crash or closed tab never loses work.
+//
+// A published build has no dev server: maps and themes are read from the static copies the build
+// includes (/maps/index.json, /themes/index.json), and Save downloads the two files instead of
+// writing maps/. Hosted saving (GitHub or a database) is a later step.
+
+/** True in a production build, where there are no /__tdmm endpoints. */
+export const HOSTED = !import.meta.env.DEV;
 
 export interface MapListEntry {
   id: string;
@@ -26,7 +33,7 @@ async function json<T>(res: Response): Promise<T> {
   return body;
 }
 
-export const listMaps = () => fetch('/__tdmm/maps').then((r) => json<MapListEntry[]>(r));
+export const listMaps = () => fetch(HOSTED ? '/maps/index.json' : '/__tdmm/maps').then((r) => json<MapListEntry[]>(r));
 
 export interface ThemeListEntry {
   id: string;
@@ -41,15 +48,47 @@ export interface ThemeListEntry {
   fallbacks: number;
   missing: string[];
 }
-export const listThemes = () => fetch('/__tdmm/themes').then((r) => json<ThemeListEntry[]>(r));
-export const loadMapFiles = (id: string) => fetch(`/__tdmm/map?id=${encodeURIComponent(id)}`).then((r) => json<LoadedFiles>(r));
+export const listThemes = () => fetch(HOSTED ? '/themes/index.json' : '/__tdmm/themes').then((r) => json<ThemeListEntry[]>(r));
 
-export function saveMapFiles(id: string, map: string, waves: string, expectedHash: string | null, force = false) {
+export async function loadMapFiles(id: string): Promise<LoadedFiles> {
+  if (!HOSTED) return fetch(`/__tdmm/map?id=${encodeURIComponent(id)}`).then((r) => json<LoadedFiles>(r));
+  const res = await fetch(`/maps/${encodeURIComponent(id)}.map.json`);
+  // a missing file comes back as the app's HTML 404 page, not JSON
+  if (!res.ok || !(res.headers.get('content-type') ?? '').includes('json')) throw new Error(`no map "${id}" in maps/`);
+  const map = await res.text();
+  const w = await fetch(`/maps/${encodeURIComponent(id)}.waves.json`);
+  const waves = w.ok && (w.headers.get('content-type') ?? '').includes('json') ? await w.text() : null;
+  return { map, waves, hash: await hashOf(map, waves), mtimeMs: 0 };
+}
+
+/** Same as the dev server's hash (tools/repo-index.ts), so autosaves match across both. */
+async function hashOf(map: string, waves: string | null) {
+  const bytes = new TextEncoder().encode(`${map}\0${waves ?? ''}`);
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('').slice(0, 16);
+}
+
+/** Saves to maps/ through the dev server, or (hosted) downloads both files for you to commit. */
+export async function saveMapFiles(id: string, map: string, waves: string, expectedHash: string | null, force = false): Promise<{ ok: true; hash: string; downloaded?: boolean }> {
+  if (HOSTED) {
+    download(`${id}.map.json`, map);
+    download(`${id}.waves.json`, waves);
+    return { ok: true, hash: await hashOf(map, waves), downloaded: true };
+  }
   return fetch('/__tdmm/save', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ id, map, waves, expectedHash, force }),
   }).then((r) => json<{ ok: true; hash: string }>(r));
+}
+
+function download(name: string, text: string) {
+  const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+  const a = Object.assign(document.createElement('a'), { href: url, download: name });
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 // ---- autosave -----------------------------------------------------------------------------------

@@ -246,7 +246,7 @@ function Library({ editor, list, title, selected }: { editor: EditorController; 
   );
 }
 
-function LibraryRow({ item, selected, pinned, digit, onPick, onPin }: { item: LibraryItem; selected: boolean; pinned: boolean; digit?: number; onPick: () => void; onPin: () => void }) {
+function LibraryRow({ item, selected, pinned, digit, onPick, onPin }: { item: LibraryItem; selected: boolean; pinned: boolean; digit?: number | undefined; onPick: () => void; onPin: () => void }) {
   return (
     <li className="lib-row">
       <button className={selected ? 'swatch selected' : 'swatch'} onClick={onPick}>

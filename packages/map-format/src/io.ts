@@ -29,8 +29,8 @@ function migrate(input: unknown, kind: string, current: number, migrations: Reco
   const raw = typeof input === 'string' ? (JSON.parse(input) as unknown) : input;
   if (typeof raw !== 'object' || raw === null) throw new MapFormatError(`${kind} file is not a JSON object`);
   let doc = raw as Record<string, unknown>;
-  if (typeof doc.schemaVersion !== 'number') throw new MapFormatError(`${kind} file has no schemaVersion`);
-  let version: number = doc.schemaVersion;
+  if (typeof doc['schemaVersion'] !== 'number') throw new MapFormatError(`${kind} file has no schemaVersion`);
+  let version: number = doc['schemaVersion'];
   if (version > current) {
     throw new MapFormatError(`${kind} is schemaVersion ${version}, but this code only understands up to ${current}; update the tool`);
   }
@@ -38,7 +38,7 @@ function migrate(input: unknown, kind: string, current: number, migrations: Reco
     const step = migrations[version];
     if (!step) throw new MapFormatError(`no ${kind} migration from schemaVersion ${version}`);
     doc = step(doc);
-    version = doc.schemaVersion as number;
+    version = doc['schemaVersion'] as number;
   }
   return doc;
 }
