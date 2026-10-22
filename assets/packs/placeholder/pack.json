@@ -1,0 +1,32 @@
+{
+  "pack_id": "placeholder",
+  "name": "Generated placeholder art",
+  "source": { "site": "generated", "url": null, "retrieved_at": "2026-10-21", "generator": "tools/gen-placeholder-art.ts" },
+  "artist": { "name": "TDMapMaker (generated)" },
+  "upstream_credits": [],
+  "license": { "spdx": "CC0-1.0", "credit_line": null, "status": "ok", "raw_redistribution": "allowed", "terms_snapshot": null },
+  "ripped_from_official": "none",
+  "visibility": "public-ok",
+  "format": { "native_tile_px": 16, "scale": 2 },
+  "assets": {
+    "water": { "file": "water.png", "kind": "autotile", "frameMs": 250 },
+    "path_dirt": { "file": "path_dirt.png", "kind": "autotile" },
+    "ground": {
+      "file": "ground.png",
+      "kind": "tileset",
+      "tiles": { "grass": [0, 0], "grass_b": [1, 0], "flowers": [2, 0], "snow": [3, 0] }
+    },
+    "stamps": {
+      "file": "stamps.png",
+      "kind": "tileset",
+      "regions": {
+        "tree_round": [0, 0, 2, 3],
+        "tree_pine": [2, 0, 1, 2],
+        "house_small": [3, 0, 3, 3],
+        "bush": [6, 0, 1, 1],
+        "rock": [7, 0, 1, 1],
+        "flowers": [6, 1, 1, 1]
+      }
+    }
+  }
+}

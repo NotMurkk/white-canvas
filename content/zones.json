@@ -1,0 +1,5 @@
+{
+  "no_build": { "name": "No-build", "blocksBuild": true, "color": "#c070ff" },
+  "high_ground": { "name": "High ground (+25% range)", "rangeMult": 1.25, "color": "#f0a030" },
+  "fog": { "name": "Fog (−20% range)", "rangeMult": 0.8, "color": "#90a0b0" }
+}

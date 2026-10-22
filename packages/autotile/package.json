@@ -1,0 +1,8 @@
+{
+  "name": "@tdmm/autotile",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "RPG Maker XP / Essentials autotile tables, neighbour resolver and expander. No Phaser dependency.",
+  "exports": { ".": "./src/index.ts" }
+}

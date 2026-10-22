@@ -1,0 +1,9 @@
+node_modules/
+dist/
+*.tsbuildinfo
+.vite/
+# Raw downloaded tilesets stay out of the repo (licences rarely allow re-hosting raw sheets)
+assets/raw/
+downloads/
+# Previous versions of saved maps (the editor writes these before overwriting)
+.tdmm-backup/

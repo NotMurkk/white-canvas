@@ -1,0 +1,45 @@
+{
+  "tree_round": {
+    "name": "Round tree",
+    "category": "tree",
+    "footprint": ["CC", "CC", "BB"],
+    "anchor": [0, 2],
+    "color": "#3c8a3c"
+  },
+  "tree_pine": {
+    "name": "Pine",
+    "category": "tree",
+    "footprint": ["C", "B"],
+    "anchor": [0, 1],
+    "color": "#2f6e48"
+  },
+  "bush": {
+    "name": "Bush",
+    "category": "tree",
+    "footprint": ["B"],
+    "anchor": [0, 0],
+    "color": "#4f9a40"
+  },
+  "rock": {
+    "name": "Rock",
+    "category": "rock",
+    "footprint": ["B"],
+    "anchor": [0, 0],
+    "allowedOn": ["land", "water"],
+    "color": "#8a8a90"
+  },
+  "house_small": {
+    "name": "Small house",
+    "category": "building",
+    "footprint": ["CCC", "BBB", "BBB"],
+    "anchor": [1, 2],
+    "color": "#c05040"
+  },
+  "flowers": {
+    "name": "Flowers",
+    "category": "decor",
+    "footprint": ["."],
+    "anchor": [0, 0],
+    "color": "#f07080"
+  }
+}

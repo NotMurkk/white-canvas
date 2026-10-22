@@ -1,0 +1,22 @@
+{
+  "name": "@tdmm/game",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Reference Phaser game that loads maps the way the real game will. Stand-in until the editor moves into the game repo.",
+  "scripts": {
+    "dev": "vite --port 5174 --strictPort",
+    "build": "vite build"
+  },
+  "exports": {
+    "./scene": "./src/GameScene.ts"
+  },
+  "dependencies": {
+    "@tdmm/map-format": "0.0.0",
+    "@tdmm/map-runtime": "0.0.0",
+    "@tdmm/pathing": "0.0.0",
+    "@tdmm/rules": "0.0.0",
+    "@tdmm/sim": "0.0.0",
+    "phaser": "4.2.1"
+  }
+}

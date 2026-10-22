@@ -1,0 +1,63 @@
+{
+  "format": "ptd-waves",
+  "schemaVersion": 1,
+  "mapId": "riverside-bend",
+  "startCash": 650,
+  "lives": 100,
+  "rounds": [
+    {
+      "bonusCash": 100,
+      "groups": [
+        {
+          "id": "r1_64mm7c",
+          "enemy": "scout",
+          "count": 8,
+          "startSec": 0,
+          "intervalSec": 1,
+          "spawn": "west",
+          "route": null
+        },
+        {
+          "id": "r1_kcyzyh",
+          "enemy": "scout",
+          "count": 8,
+          "startSec": 0,
+          "intervalSec": 1,
+          "spawn": "west",
+          "route": null
+        }
+      ]
+    },
+    {
+      "bonusCash": 100,
+      "groups": [
+        {
+          "id": "r2_tzgdht",
+          "enemy": "tank",
+          "count": 3,
+          "startSec": 0,
+          "intervalSec": 1,
+          "spawn": "west",
+          "route": "west:S"
+        },
+        {
+          "id": "r2_flyers",
+          "enemy": "flyer",
+          "count": 6,
+          "startSec": 2,
+          "intervalSec": 0.8,
+          "spawn": "sky_north",
+          "route": null
+        }
+      ]
+    }
+  ],
+  "clearCheck": {
+    "simVersion": 1,
+    "gameplayHash": "152bdf840e95c311e7fb2f65eec8",
+    "rounds": 2,
+    "enemies": 25,
+    "durationSec": 59.3,
+    "leakedLives": 31
+  }
+}

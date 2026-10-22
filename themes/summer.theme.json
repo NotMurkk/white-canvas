@@ -1,0 +1,21 @@
+{
+  "format": "ptd-theme",
+  "schemaVersion": 1,
+  "id": "summer",
+  "name": "Summer",
+  "atlas": "summer",
+  "baseFill": "placeholder/ground:grass",
+  "terrain": {
+    "grass": { "base": true },
+    "water": { "autotile": "placeholder/water" },
+    "path_dirt": { "autotile": "placeholder/path_dirt" }
+  },
+  "objects": {
+    "tree_round": "placeholder/stamps@tree_round",
+    "tree_pine": "placeholder/stamps@tree_pine",
+    "house_small": "placeholder/stamps@house_small",
+    "bush": "placeholder/stamps@bush",
+    "rock": "placeholder/stamps@rock",
+    "flowers": "placeholder/stamps@flowers"
+  }
+}

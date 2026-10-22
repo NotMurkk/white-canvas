@@ -1,0 +1,19 @@
+{
+  "name": "@tdmm/map-runtime",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Logical map + theme + atlas -> Tiled-shaped JSON -> Phaser tilemap layers. Shared by the game and the editor.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@tdmm/autotile": "0.0.0",
+    "@tdmm/map-format": "0.0.0",
+    "@tdmm/pathing": "0.0.0",
+    "@tdmm/rules": "0.0.0"
+  },
+  "peerDependencies": {
+    "phaser": "4.2.1"
+  }
+}

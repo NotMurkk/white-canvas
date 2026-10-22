@@ -1,0 +1,11 @@
+{
+  "name": "@tdmm/map-format",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Map, theme, terrain and atlas schemas, terrain grid encoding, migrations and deterministic printing. No Phaser dependency.",
+  "exports": { ".": "./src/index.ts" },
+  "dependencies": {
+    "zod": "4.6.7"
+  }
+}

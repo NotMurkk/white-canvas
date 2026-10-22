@@ -1,0 +1,12 @@
+{
+  "name": "@tdmm/rules",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Gameplay rules shared by editor, game and CI: map state, stamp placement, buildable cells, validation. No Phaser dependency.",
+  "exports": { ".": "./src/index.ts" },
+  "dependencies": {
+    "@tdmm/map-format": "0.0.0",
+    "@tdmm/pathing": "0.0.0"
+  }
+}

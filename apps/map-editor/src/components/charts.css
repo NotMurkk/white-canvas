@@ -1,0 +1,110 @@
+/* Charts for the waves panel (WaveTimeline) and the balance tab (BalancePanel). Dark-only, like the
+   editor; colours build on the editor's variables in styles.css. Every class is tdc- prefixed so it
+   can't collide with the editor's own (.legend, .group, .round header, ...). */
+
+.tdc-tl,
+.tdc-balance {
+  --tdc-grid: #2a323c;          /* hairline gridlines, one step off --panel */
+  --tdc-axis: #3d4753;          /* baselines */
+  --tdc-metric: #3987e5;        /* single-series metric marks (blue 400) */
+  --tdc-metric-soft: #86b6ef;   /* first step of the time chart (blue 250) */
+  --tdc-other: #7f8a97;         /* folded "Other" enemies */
+  --tdc-hover: rgba(255, 255, 255, 0.06);
+  position: relative;
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+}
+.tdc-svg { display: block; overflow: visible; user-select: none; -webkit-user-select: none; }
+.tdc-grid { stroke: var(--tdc-grid); stroke-width: 1; shape-rendering: crispEdges; }
+.tdc-axis { stroke: var(--tdc-axis); stroke-width: 1; shape-rendering: crispEdges; }
+.tdc-tick { fill: var(--muted); font-size: 10px; }
+
+/* ---- tooltip (shared) ---- */
+.tdc-tip {
+  position: absolute;
+  z-index: 5;
+  pointer-events: none;
+  max-width: 230px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #0f1317f2;
+  box-shadow: 0 4px 14px #0008;
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.tdc-tip-head { font-size: 10px; color: var(--muted); margin-bottom: 2px; }
+.tdc-tip-row { display: flex; align-items: center; gap: 6px; }
+.tdc-tip-row b { color: var(--text); font-weight: 600; }
+.tdc-tip-sub { color: var(--muted); white-space: normal; }
+.tdc-tip-dim { color: var(--muted); }
+.tdc-key { flex: none; width: 10px; height: 2px; border-radius: 1px; }
+
+/* ---- WaveTimeline ---- */
+.tdc-tl { margin: 6px 0 4px; }
+.tdc-tl-empty { color: var(--muted); font-size: 12px; padding: 2px 0; }
+.tdc-tl .tdc-grid { stroke: #303945; }        /* round cards sit on --panel-2 */
+.tdc-tl .tdc-axis { stroke: #45505d; }
+.tdc-lane { fill: rgba(255, 255, 255, 0.025); }
+.tdc-lane.is-on { fill: rgba(255, 255, 255, 0.055); }
+.tdc-lane-label { fill: var(--text); font-size: 11px; }
+.tdc-clear line { stroke: var(--text); stroke-opacity: 0.55; stroke-width: 1; shape-rendering: crispEdges; }
+.tdc-clear text { fill: var(--muted); font-size: 10px; }
+.tdc-bar { cursor: grab; outline: none; touch-action: none; }
+.tdc-bar .tdc-hit { fill: transparent; }
+.tdc-bar .tdc-ring { fill: none; stroke: var(--accent); stroke-width: 1.5; opacity: 0; }
+.tdc-bar:focus-visible .tdc-ring,
+.tdc-bar.is-dragging .tdc-ring { opacity: 1; }
+.tdc-bar:hover rect:not(.tdc-hit):not(.tdc-ring) { filter: brightness(1.15); }
+.tdc-tl.is-dragging,
+.tdc-tl.is-dragging .tdc-bar { cursor: grabbing; }
+.tdc-tl-tip { left: 0; }
+
+/* ---- BalancePanel ---- */
+.tdc-balance { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
+.tdc-balance > * { min-width: 0; }
+.tdc-summary { display: flex; align-items: stretch; gap: 6px; }
+.tdc-stat { flex: 1; min-width: 0; padding: 5px 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel-2); }
+.tdc-stat-label { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tdc-stat-value { font-size: 15px; font-weight: 600; color: var(--text); font-variant-numeric: normal; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tdc-toggle { align-self: center; padding: 3px 8px; font-size: 12px; }
+.tdc-toggle[aria-pressed='true'] { border-color: var(--accent); background: var(--panel-3); }
+
+.tdc-card { position: relative; border: 1px solid var(--line); border-radius: 8px; padding: 8px 8px 4px; background: var(--panel); }
+.tdc-title { margin: 0; font-size: 12px; font-weight: 600; color: var(--text); }
+.tdc-note { margin: 1px 0 4px; font-size: 11px; color: var(--muted); line-height: 1.35; }
+.tdc-legend { display: flex; flex-wrap: wrap; gap: 3px 10px; margin: 0 0 4px; padding: 0; list-style: none; font-size: 11px; color: var(--muted); }
+.tdc-legend li { display: flex; align-items: center; gap: 4px; }
+.tdc-swatch { position: relative; flex: none; width: 9px; height: 9px; border-radius: 2px; overflow: hidden; }
+.tdc-swatch.is-hatched::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(45deg, rgba(0, 0, 0, 0.55) 0 1.2px, transparent 1.2px 3px);
+}
+.tdc-plot { outline: none; border-radius: 4px; }
+.tdc-plot.is-pickable { cursor: pointer; }
+.tdc-plot:focus-visible { box-shadow: 0 0 0 1.5px var(--accent); }
+.tdc-hoverband { fill: var(--tdc-hover); }
+.tdc-peak { fill: var(--text); font-size: 10px; }
+.tdc-line { fill: none; stroke: var(--tdc-metric); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.tdc-area { fill: var(--tdc-metric); fill-opacity: 0.1; }
+.tdc-dot { fill: var(--tdc-metric); stroke: var(--panel); stroke-width: 2; }
+.tdc-metric { fill: var(--tdc-metric); }
+.tdc-metric-soft { fill: var(--tdc-metric-soft); }
+
+.tdc-empty { color: var(--muted); font-size: 12px; line-height: 1.45; margin: 4px 0; }
+.tdc-errors-title { margin: 0 0 6px; font-size: 12px; font-weight: 600; color: var(--error); }
+.tdc-errors { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.tdc-errors li { display: flex; gap: 8px; align-items: flex-start; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel-2); line-height: 1.4; font-size: 12px; color: var(--text); }
+.tdc-errors li::before { content: '!'; flex: none; width: 16px; height: 16px; border-radius: 50%; display: grid; place-items: center; font-size: 10px; font-weight: 700; background: var(--error); color: #200; }
+
+.tdc-table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; }
+.tdc-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.tdc-table th { position: sticky; top: 0; background: var(--panel-2); color: var(--muted); font-weight: 600; text-align: right; padding: 4px 5px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.tdc-table td { text-align: right; padding: 3px 5px; border-bottom: 1px solid var(--tdc-grid); color: var(--text); white-space: nowrap; }
+.tdc-table th:first-child, .tdc-table td:first-child { text-align: left; }
+.tdc-table tbody tr.is-pickable { cursor: pointer; }
+.tdc-table tbody tr:hover, .tdc-table tbody tr:focus-visible { background: var(--tdc-hover); outline: none; }

@@ -1,0 +1,6 @@
+{
+  "scout": { "name": "Scout", "hp": 30, "speed": 3.2, "color": "#f0d040", "radius": 0.25 },
+  "grunt": { "name": "Grunt", "hp": 80, "speed": 2.0, "color": "#e07030" },
+  "tank": { "name": "Tank", "hp": 400, "speed": 1.1, "damage": 3, "reward": 5, "color": "#7058c0", "radius": 0.4 },
+  "flyer": { "name": "Flyer", "hp": 50, "speed": 2.6, "flying": true, "color": "#60c0f0", "radius": 0.28 }
+}

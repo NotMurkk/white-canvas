@@ -1,0 +1,30 @@
+{
+  "name": "td-map-maker",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:editor": "npm run dev -w @tdmm/map-editor",
+    "dev:game": "npm run dev -w @tdmm/game",
+    "art:placeholder": "node tools/gen-placeholder-art.ts",
+    "art:atlas": "node tools/build-atlas.ts",
+    "art": "npm run art:placeholder && npm run art:atlas && npm run credits",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "packs:import": "node tools/import-packs.ts",
+    "credits": "node tools/build-credits.ts",
+    "clearcheck": "node tools/clear-check.ts"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.5",
+    "@types/pngjs": "6.0.5",
+    "fflate": "0.8.3",
+    "pngjs": "7.0.0",
+    "typescript": "5.9.3",
+    "vite": "8.3.5",
+    "vitest": "5.0.5"
+  }
+}

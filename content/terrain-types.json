@@ -1,0 +1,5 @@
+{
+  "grass": { "name": "Grass", "drawOrder": 0, "placement": ["land"], "walkable": true, "color": "#70c058" },
+  "water": { "name": "Water", "drawOrder": 10, "placement": ["water"], "walkable": false, "color": "#5890e0" },
+  "path_dirt": { "name": "Dirt", "drawOrder": 20, "placement": ["land"], "walkable": true, "pathStyle": true, "color": "#d8b878" }
+}
