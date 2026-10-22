@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { Direction } from '@tdmm/map-format';
 import { parseRoundSpec } from '@tdmm/map-format';
+import { CLIP_LAYERS, type ClipLayer } from '../editor/clipboard.ts';
 import type { EditorController } from '../editor/EditorController.ts';
 import { useStore } from '../editor/store.ts';
 
@@ -37,6 +38,22 @@ function NumberCommit({ value, min, step = 1, onCommit, label }: { value: number
   };
   return (
     <input className="num-input" type="number" aria-label={label} min={min} step={step} value={text} onChange={(e) => setText(e.target.value)} onBlur={commit} onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()} />
+  );
+}
+
+const LAYER_NAMES: Record<ClipLayer, string> = { terrain: 'Terrain', path: 'Path', objects: 'Objects', zones: 'Zones' };
+
+/** Which layers the marquee copies, cuts and deletes. */
+export function LayerChecks({ editor }: { editor: EditorController }) {
+  const layers = useStore(editor.store, (s) => s.layers);
+  return (
+    <div className="layer-checks" role="group" aria-label="Layers">
+      {CLIP_LAYERS.map((l) => (
+        <label key={l}>
+          <input type="checkbox" checked={layers[l]} onChange={(e) => editor.setLayers({ [l]: e.target.checked })} /> {LAYER_NAMES[l]}
+        </label>
+      ))}
+    </div>
   );
 }
 
@@ -209,6 +226,36 @@ export function Inspector({ editor }: { editor: EditorController }) {
         <button className="danger" onClick={() => editor.deleteSelection()}>
           Delete spawn
         </button>
+      </div>
+    );
+  }
+
+  if (inspect.kind === 'region') {
+    const { region: r, counts } = inspect;
+    return (
+      <div className="panel-body inspector">
+        <h3>
+          Selection {inspect.w}×{inspect.h}
+        </h3>
+        <p className="muted">
+          ({r.x0}, {r.y0}) to ({r.x1}, {r.y1}) · {counts.objects} object{counts.objects === 1 ? '' : 's'} · {counts.path} path cell{counts.path === 1 ? '' : 's'} · {counts.zones} zone cell{counts.zones === 1 ? '' : 's'}
+        </p>
+        <LayerChecks editor={editor} />
+        <div className="row-buttons">
+          <button onClick={() => editor.copySelection()} title="Ctrl+C">
+            Copy
+          </button>
+          <button onClick={() => editor.copySelection(true)} title="Ctrl+X">
+            Cut
+          </button>
+          <button onClick={() => editor.startPaste()} title="Ctrl+V">
+            Paste
+          </button>
+          <button className="danger" onClick={() => editor.deleteSelection()} title="Delete">
+            Delete
+          </button>
+        </div>
+        <p className="muted small">Objects come along when the cell they stand on is inside the box. Pasting adds on top: terrain is replaced, existing paths keep their cells, and the ghost turns red with a reason where something doesn't fit.</p>
       </div>
     );
   }

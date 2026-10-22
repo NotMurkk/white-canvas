@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { parseMap, parseWaves, type MapDoc, type WavesDoc } from '@tdmm/map-format';
 import { DEPTH, MapView, preloadTheme, themeAssets, ySortDepth, type ThemeAssets } from '@tdmm/map-runtime';
-import { pointAt } from '@tdmm/pathing';
+import { pointAt, type Route } from '@tdmm/pathing';
 import { footprintBounds, mapStateFromDoc, objectAtCell, validateMap, type MapState } from '@tdmm/rules';
 import { Simulation, type SimEnemy } from '@tdmm/sim';
 
@@ -32,6 +32,15 @@ interface EnemySprite {
   shadow: Phaser.GameObjects.Ellipse;
 }
 
+/** What one enemy did in a playtest: its route, how far it got, and whether it leaked. */
+export interface RunTrail {
+  enemy: string;
+  route: Route;
+  dist: number;
+  leaked: boolean;
+  flying: boolean;
+}
+
 export class GameScene extends Phaser.Scene {
   private params: GameSceneData = {};
   view?: MapView;
@@ -41,6 +50,7 @@ export class GameScene extends Phaser.Scene {
   private state!: MapState;
   private assets!: ThemeAssets;
   private sprites = new Map<number, EnemySprite>();
+  private trails = new Map<number, RunTrail>();
   private badges = new Map<string, Phaser.GameObjects.Text>();
   private gap = 0;
   private speed = 1;
@@ -57,6 +67,7 @@ export class GameScene extends Phaser.Scene {
     this.params = data ?? {};
     if (!this.params.map && !this.params.mapUrl) throw new Error('GameScene needs a map or a mapUrl');
     this.sprites = new Map();
+    this.trails = new Map();
     this.badges = new Map();
     this.speed = 1;
     this.paused = false;
@@ -167,10 +178,28 @@ export class GameScene extends Phaser.Scene {
     const shadow = this.add.ellipse(-100, -100, ts * def.radius * 1.8, ts * def.radius * 0.7, 0x000000, 0.25).setDepth(DEPTH.markers + 1);
     const body = this.add.circle(-100, -100, ts * def.radius, color).setStrokeStyle(2, 0x202020);
     this.sprites.set(e.uid, { body, shadow });
+    this.trails.set(e.uid, { enemy: e.enemy, route: e.route, dist: 0, leaked: false, flying: e.flying });
+  }
+
+  /**
+   * Every enemy of this run so far, with how far along its route it got. The editor reads this
+   * when a playtest ends and draws it as trails and leak markers (Mario Maker's "last path").
+   */
+  runLog(): RunTrail[] {
+    for (const e of this.sim?.enemies ?? []) {
+      const t = this.trails.get(e.uid);
+      if (t) t.dist = Math.min(e.dist, e.length);
+    }
+    return [...this.trails.values()];
   }
 
   private removeEnemy(e: SimEnemy, leaked: boolean) {
     const s = this.sprites.get(e.uid);
+    const t = this.trails.get(e.uid);
+    if (t) {
+      t.dist = e.length;
+      t.leaked = leaked;
+    }
     if (leaked) this.leaked++;
     s?.body.destroy();
     s?.shadow.destroy();

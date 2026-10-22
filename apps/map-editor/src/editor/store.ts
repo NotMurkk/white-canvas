@@ -1,6 +1,8 @@
 import { useSyncExternalStore } from 'react';
 import type { Direction, JunctionPolicy, ObjectInstance, Problem, WavesDoc } from '@tdmm/map-format';
 import type { RoundStats } from '@tdmm/sim';
+import type { ClipLayer, LayerFilter, Region } from './clipboard.ts';
+import type { LibraryPrefs } from './palette.ts';
 import type { Autosave, MapListEntry, ThemeListEntry } from './storage.ts';
 import type { TerrainMode, ToolId } from './tools.ts';
 
@@ -53,6 +55,25 @@ export interface EditorUiState {
   showArrows: boolean;
   showBuildable: boolean;
   buildableOpacity: number;
+  /** Heatmap of how much path a tower on each cell would reach (uses testRange). */
+  showCoverage: boolean;
+  /** Highest heatmap value, in tiles of path in range per enemy (for the legend). */
+  coverageMax: number;
+  /** Base range of test towers and the heatmap, in tiles. */
+  testRange: number;
+  /** Editor-only probe towers: never saved, not in undo history. */
+  testTowers: TestTower[];
+  /** Which layers a marquee selects, copies and deletes. */
+  layers: LayerFilter;
+  /** Paste mode: a clip follows the pointer until it's placed or cancelled. */
+  paste: { w: number; h: number } | null;
+  /** What's on the clipboard (shared with other tabs through localStorage). */
+  clipInfo: { w: number; h: number; layers: ClipLayer[] } | null;
+  /** The last playtest, drawn as trails and leak markers until the next edit. */
+  lastRun: { enemies: number; leaked: number } | null;
+  showTrails: boolean;
+  /** Palette search, pins and recents (pins and recents persist in localStorage). */
+  library: LibraryPrefs;
   muted: boolean;
   problems: Problem[];
   errors: number;
@@ -68,12 +89,24 @@ export interface EditorUiState {
   dialog: 'none' | 'new' | 'open';
 }
 
+export interface TestTower {
+  x: number;
+  y: number;
+  /** Range after the cell's multipliers. */
+  range: number;
+  /** Expected tiles of path in range per enemy. */
+  expected: number;
+  /** False once an edit made the cell unable to take a tower. */
+  ok: boolean;
+}
+
 export type Selection =
   | { kind: 'object'; id: string }
   | { kind: 'spawn'; id: string }
   | { kind: 'exit'; id: string }
   | { kind: 'airRoute'; id: string }
   | { kind: 'junction'; cell: [number, number] }
+  | ({ kind: 'region' } & Region)
   | null;
 
 export type Inspect =
@@ -82,6 +115,7 @@ export type Inspect =
   | { kind: 'exit'; id: string; cell: [number, number]; routes: string[] }
   | { kind: 'airRoute'; id: string; from: string; to: string; points: number; smooth: boolean; length: number; usedBy: number }
   | { kind: 'junction'; cell: [number, number]; policy: JunctionPolicy; hasPolicy: boolean; branches: { dir: Direction; exits: string[]; routes: string[] }[] }
+  | { kind: 'region'; region: Region; w: number; h: number; counts: { cells: number; path: number; zones: number; objects: number } }
   | { kind: 'missing' };
 
 type Listener = () => void;

@@ -113,6 +113,11 @@ export function App() {
           </div>
         )}
         {s.mode === 'play' && <div className="play-banner">Playtesting the unsaved map · Esc to return</div>}
+        {s.mode === 'edit' && s.paste && (
+          <div className="play-banner paste-banner">
+            Pasting {s.paste.w}×{s.paste.h} · click to place (again and again) · right-click or Esc to stop
+          </div>
+        )}
         {s.restore && (
           <div className="banner">
             Unsaved changes from {new Date(s.restore.savedAt).toLocaleTimeString()} were found for this map.

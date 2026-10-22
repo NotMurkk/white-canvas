@@ -2,8 +2,10 @@ import Phaser from 'phaser';
 import { DIR_E, DIR_N, DIR_S, DIR_W, NO_PATH, type MapDoc, type WavesDoc } from '@tdmm/map-format';
 import { DEPTH, MapView, atlasTextureKey, preloadTheme, themeAssets, ySortDepth, type ThemeAssets } from '@tdmm/map-runtime';
 import { BuildBlock, checkPlacement, footprintBounds, occupancy, type PlacementCheck } from '@tdmm/rules';
+import type { Clip, PastePlan } from './clipboard.ts';
 import { EditorDocument } from './document.ts';
 import type { Selection } from './store.ts';
+import type { RunSummary } from './trails.ts';
 
 export const EDITOR_SCENE_KEY = 'editor';
 
@@ -16,11 +18,26 @@ export interface EditorSceneData {
   onError: (error: Error) => void;
 }
 
+/** `from` is the cell under the pointer when forgiveness snapping moved the drop elsewhere. */
 export type Ghost =
-  | { kind: 'cell'; x: number; y: number; color: number }
+  | { kind: 'cell'; x: number; y: number; color: number; from?: { x: number; y: number } }
   | { kind: 'rect'; x0: number; y0: number; x1: number; y1: number; color: number }
-  | { kind: 'stamp'; x: number; y: number; stamp: string }
+  | { kind: 'stamp'; x: number; y: number; stamp: string; from?: { x: number; y: number } }
+  | { kind: 'tower'; x: number; y: number; range: number; ok: boolean; from?: { x: number; y: number } }
   | null;
+
+/** Sequential ramp for the coverage heatmap: low = deep purple, high = bright yellow. */
+const HEAT_RAMP = [0x2c105c, 0x711f81, 0xb63679, 0xee605e, 0xfdae78, 0xfcfdbf];
+
+export function heatColor(t: number) {
+  const x = Math.min(1, Math.max(0, t)) * (HEAT_RAMP.length - 1);
+  const i = Math.min(HEAT_RAMP.length - 2, Math.floor(x));
+  const f = x - i;
+  const a = HEAT_RAMP[i]!;
+  const b = HEAT_RAMP[i + 1]!;
+  const ch = (s: number) => Math.round(((a >> s) & 255) * (1 - f) + ((b >> s) & 255) * f) << s;
+  return ch(16) | ch(8) | ch(0);
+}
 
 const OVERLAY_COLORS = { land: 0x40e060, water: 0x40a0ff, other: 0xc080ff, blocked: 0xff3040, removable: 0xffa030 };
 const POLICY_COLORS = { alternate: 0xffd040, weighted: 0xff9030, random: 0xc070ff };
@@ -42,6 +59,12 @@ export class EditorScene extends Phaser.Scene {
   private zonesGfx!: Phaser.GameObjects.Graphics;
   private airGfx!: Phaser.GameObjects.Graphics;
   private selGfx!: Phaser.GameObjects.Graphics;
+  private heatGfx!: Phaser.GameObjects.Graphics;
+  private towerGfx!: Phaser.GameObjects.Graphics;
+  private towerLabels: Phaser.GameObjects.Text[] = [];
+  private pasteImages: Phaser.GameObjects.Image[] = [];
+  private trailGfx!: Phaser.GameObjects.Graphics;
+  private trailLabels: Phaser.GameObjects.Text[] = [];
   private badges = new Map<string, Phaser.GameObjects.Text>();
   private selection: Selection = null;
   private draft: { from: string; points: [number, number][] } | null = null;
@@ -95,6 +118,12 @@ export class EditorScene extends Phaser.Scene {
     this.zonesGfx = this.add.graphics().setDepth(DEPTH.markers - 1);
     this.airGfx = this.add.graphics().setDepth(DEPTH.editorOverlay + 4);
     this.selGfx = this.add.graphics().setDepth(DEPTH.editorCursor - 2);
+    this.heatGfx = this.add.graphics().setDepth(DEPTH.editorOverlay);
+    this.towerGfx = this.add.graphics().setDepth(DEPTH.editorOverlay + 6);
+    this.towerLabels = [];
+    this.pasteImages = [];
+    this.trailGfx = this.add.graphics().setDepth(DEPTH.editorOverlay + 4);
+    this.trailLabels = [];
     this.badges = new Map();
     this.cameras.main.setBackgroundColor('#1b2026');
 
@@ -151,6 +180,87 @@ export class EditorScene extends Phaser.Scene {
     this.arrows.setVisible(this.options.showArrows);
     this.buildable.setVisible(this.options.showBuildable).setAlpha(this.options.buildableOpacity);
     this.overlaysDirty = true;
+  }
+
+  /**
+   * Coverage heatmap (null hides it) and test towers. The controller computes both from the shared
+   * rules, so the numbers match the status bar and palette.
+   */
+  setCoverage(heat: Float32Array | null, max: number, towers: { x: number; y: number; range: number; expected: number; ok: boolean }[]) {
+    const ts = this.view.tileSize;
+    const { width } = this.doc;
+    this.heatGfx.clear();
+    if (heat && max > 0) {
+      let best = 0;
+      for (let i = 0; i < heat.length; i++) {
+        const v = heat[i]!;
+        if (v <= 0) continue;
+        best = Math.max(best, v);
+        this.heatGfx.fillStyle(heatColor(v / max), 0.72).fillRect((i % width) * ts, Math.floor(i / width) * ts, ts, ts);
+      }
+      // ring the best spots (within 2% of the top) so the eye finds them at once
+      this.heatGfx.lineStyle(2, 0xffffff, 0.95);
+      for (let i = 0; i < heat.length; i++) if (heat[i]! >= best * 0.98) this.heatGfx.strokeRect((i % width) * ts + 3, Math.floor(i / width) * ts + 3, ts - 6, ts - 6);
+    }
+
+    this.towerGfx.clear();
+    towers.forEach((t, n) => {
+      const cx = (t.x + 0.5) * ts;
+      const cy = (t.y + 0.5) * ts;
+      const color = t.ok ? 0x80d0ff : 0xff5050;
+      this.towerGfx.fillStyle(color, 0.08).fillCircle(cx, cy, t.range * ts);
+      this.towerGfx.lineStyle(2, color, 0.85).strokeCircle(cx, cy, t.range * ts);
+      this.drawTowerIcon(this.towerGfx, cx, cy, ts, color);
+      let label = this.towerLabels[n];
+      if (!label) {
+        label = this.add.text(0, 0, '', { fontFamily: 'monospace', fontSize: '11px', color: '#0b1c26', backgroundColor: '#80d0ff', padding: { x: 3, y: 1 } }).setOrigin(0.5, 1).setDepth(DEPTH.editorOverlay + 7);
+        this.towerLabels.push(label);
+      }
+      label
+        .setText(t.ok ? `${t.expected.toFixed(1)} tiles` : 'blocked')
+        .setBackgroundColor(t.ok ? '#80d0ff' : '#ff8080')
+        .setPosition(cx, t.y * ts - 2)
+        .setVisible(true);
+    });
+    for (let n = towers.length; n < this.towerLabels.length; n++) this.towerLabels[n]!.setVisible(false);
+  }
+
+  /**
+   * Last playtest: each route walked, as far as any enemy got (thicker = more enemies), where the
+   * stragglers stood when it stopped, and a red count on every exit that leaked.
+   */
+  setTrails(run: RunSummary | null) {
+    const ts = this.view.tileSize;
+    const g = this.trailGfx;
+    g.clear();
+    for (const l of this.trailLabels) l.setVisible(false);
+    if (!run) return;
+    for (const r of run.routes) {
+      const pts = r.points.map(([x, y]) => new Phaser.Math.Vector2(x * ts, y * ts));
+      const width = 3 + Math.min(4, Math.log2(r.enemies));
+      g.lineStyle(width + 3, 0x000000, 0.35).strokePoints(pts);
+      g.lineStyle(width, r.flying ? 0x60c0f0 : 0xffb040, 0.8).strokePoints(pts);
+    }
+    for (const s of run.stops) {
+      g.fillStyle(hex(this.assets.enemies[s.enemy]?.color ?? '#ffffff'), 1).fillCircle(s.x * ts, s.y * ts - (s.flying ? ts * 0.45 : 0), ts * 0.18);
+      g.lineStyle(2, 0xffffff, 0.9).strokeCircle(s.x * ts, s.y * ts - (s.flying ? ts * 0.45 : 0), ts * 0.18);
+    }
+    run.leaks.forEach((k, n) => {
+      g.lineStyle(3, 0xff3030, 1).strokeCircle(k.x * ts, k.y * ts, ts * 0.42);
+      let label = this.trailLabels[n];
+      if (!label) {
+        label = this.add.text(0, 0, '', { fontFamily: 'monospace', fontSize: '11px', color: '#ffffff', backgroundColor: '#c02020', padding: { x: 3, y: 1 } }).setOrigin(0.5, 0).setDepth(DEPTH.editorOverlay + 7);
+        this.trailLabels.push(label);
+      }
+      label.setText(`${k.count} leaked`).setPosition(k.x * ts, k.y * ts + ts * 0.45).setVisible(true);
+    });
+  }
+
+  private drawTowerIcon(g: Phaser.GameObjects.Graphics, cx: number, cy: number, ts: number, color: number) {
+    g.fillStyle(0x0b1c26, 0.9).fillCircle(cx, cy, ts * 0.34);
+    g.lineStyle(2, color, 1).strokeCircle(cx, cy, ts * 0.34);
+    const r = ts * 0.16;
+    g.fillStyle(color, 1).fillTriangle(cx, cy - r, cx + r, cy, cx, cy + r).fillTriangle(cx, cy - r, cx - r, cy, cx, cy + r);
   }
 
   /** Pulses cells for a few seconds (problem list click-to-focus). */
@@ -324,7 +434,93 @@ export class EditorScene extends Phaser.Scene {
       if (m) this.selGfx.strokeRect(m.cell[0] * ts - 2, m.cell[1] * ts - 2, ts + 4, ts + 4);
     } else if (sel.kind === 'junction') {
       this.selGfx.strokeRect(sel.cell[0] * ts - 2, sel.cell[1] * ts - 2, ts + 4, ts + 4);
+    } else if (sel.kind === 'region') {
+      const x = sel.x0 * ts;
+      const y = sel.y0 * ts;
+      const w = (sel.x1 - sel.x0 + 1) * ts;
+      const h = (sel.y1 - sel.y0 + 1) * ts;
+      this.selGfx.fillStyle(0x80d0ff, 0.12).fillRect(x, y, w, h);
+      this.dashedRect(this.selGfx, x, y, w, h, 0xffffff);
+      // objects the region takes along (anchor inside): thin outline round their footprint
+      this.selGfx.lineStyle(1, 0x80d0ff, 0.9);
+      for (const o of this.doc.state.objects) {
+        const kind = this.assets.kinds[o.kind];
+        if (!kind || o.x < sel.x0 || o.x > sel.x1 || o.y < sel.y0 || o.y > sel.y1) continue;
+        const b = footprintBounds(kind, o.x, o.y);
+        this.selGfx.strokeRect(b.x * ts + 1, b.y * ts + 1, b.w * ts - 2, b.h * ts - 2);
+      }
     }
+  }
+
+  private dashedRect(g: Phaser.GameObjects.Graphics, x: number, y: number, w: number, h: number, color: number) {
+    g.lineStyle(4, 0x000000, 0.5).strokeRect(x, y, w, h);
+    g.lineStyle(2, color, 1);
+    const edge = (ax: number, ay: number, bx: number, by: number) => {
+      const len = Math.hypot(bx - ax, by - ay);
+      for (let d = 0; d < len; d += 10) {
+        const e = Math.min(d + 6, len);
+        g.lineBetween(ax + ((bx - ax) * d) / len, ay + ((by - ay) * d) / len, ax + ((bx - ax) * e) / len, ay + ((by - ay) * e) / len);
+      }
+    };
+    edge(x, y, x + w, y);
+    edge(x + w, y, x + w, y + h);
+    edge(x + w, y + h, x, y + h);
+    edge(x, y + h, x, y);
+  }
+
+  /**
+   * The paste ghost: the clip's terrain tinted in place, path cells with their links, its objects
+   * as faded stamps, and a green or red frame (red cells say where it fails).
+   */
+  showPaste(p: { clip: Clip; at: { x: number; y: number }; plan: PastePlan } | null) {
+    for (const img of this.pasteImages) img.setVisible(false);
+    if (!p) return;
+    const ts = this.view.tileSize;
+    const { clip, at, plan } = p;
+    const g = this.cursor;
+    g.clear();
+    this.ghostImage.setVisible(false);
+    for (let cy = 0; cy < clip.h; cy++) {
+      for (let cx = 0; cx < clip.w; cx++) {
+        const k = cy * clip.w + cx;
+        const x = (at.x + cx) * ts;
+        const y = (at.y + cy) * ts;
+        const t = clip.terrain?.[k];
+        if (t) g.fillStyle(hex(this.assets.terrainTypes[t]?.color ?? '#808080'), 0.45).fillRect(x, y, ts, ts);
+        const zone = clip.zones?.[k];
+        if (zone) g.lineStyle(2, hex(this.assets.zones[zone]?.color ?? '#c070ff'), 0.9).strokeRect(x + 3, y + 3, ts - 6, ts - 6);
+        const out = clip.path?.[k] ?? NO_PATH;
+        if (out === NO_PATH) continue;
+        const mx = x + ts / 2;
+        const my = y + ts / 2;
+        g.fillStyle(0xffffff, 0.9).fillCircle(mx, my, 3);
+        g.lineStyle(3, 0xffffff, 0.9);
+        for (const [bit, dx, dy] of [[DIR_N, 0, -1], [DIR_E, 1, 0], [DIR_S, 0, 1], [DIR_W, -1, 0]] as const) if (out & bit) g.lineBetween(mx, my, mx + dx * ts * 0.45, my + dy * ts * 0.45);
+      }
+    }
+    (clip.objects ?? []).forEach((o, n) => {
+      const kind = this.assets.kinds[o.kind];
+      const key = this.assets.theme.objects[o.kind];
+      if (!kind) return;
+      const b = footprintBounds(kind, at.x + o.dx, at.y + o.dy);
+      if (!key || !this.assets.atlas.stamps[key]) {
+        g.fillStyle(hex(kind.color), 0.6).fillRect(b.x * ts + 2, b.y * ts + 2, b.w * ts - 4, b.h * ts - 4);
+        return;
+      }
+      let img = this.pasteImages[n];
+      if (!img) {
+        img = this.add.image(0, 0, atlasTextureKey(this.assets.atlas.id)).setOrigin(0.5, 1).setAlpha(0.65);
+        this.pasteImages.push(img);
+      }
+      img
+        .setTexture(atlasTextureKey(this.assets.atlas.id), `stamp:${key}`)
+        .setPosition((b.x + b.w / 2) * ts, (b.y + b.h) * ts)
+        .setTint(plan.ok ? 0xffffff : 0xff8080)
+        .setDepth(Math.max(ySortDepth((b.y + b.h) * ts), DEPTH.editorCursor - 1))
+        .setVisible(true);
+    });
+    for (const c of plan.bad) g.fillStyle(0xff3040, 0.55).fillRect(c.x * ts + 1, c.y * ts + 1, ts - 2, ts - 2);
+    g.lineStyle(2, plan.ok ? 0x40e060 : 0xff3040, 1).strokeRect(at.x * ts + 1, at.y * ts + 1, clip.w * ts - 2, clip.h * ts - 2);
   }
 
   private dashed(points: [number, number][], ts: number, color: number, width: number, alpha = 1) {
@@ -369,10 +565,22 @@ export class EditorScene extends Phaser.Scene {
     const ts = this.view.tileSize;
     this.cursor.clear();
     this.ghostImage.setVisible(false);
+    for (const img of this.pasteImages) img.setVisible(false);
     if (!ghost) return null;
     if (ghost.kind === 'cell') {
       const inside = this.doc.inside(ghost.x, ghost.y);
       this.cursor.lineStyle(2, inside ? ghost.color : 0xff4040, 1).strokeRect(ghost.x * ts + 1, ghost.y * ts + 1, ts - 2, ts - 2);
+      if (ghost.from) this.snapConnector(ghost.from, { x: ghost.x + 0.5, y: ghost.y + 0.5 });
+      return null;
+    }
+    if (ghost.kind === 'tower') {
+      const cx = (ghost.x + 0.5) * ts;
+      const cy = (ghost.y + 0.5) * ts;
+      const color = ghost.ok ? 0x80d0ff : 0xff4040;
+      if (ghost.ok) this.cursor.fillStyle(color, 0.1).fillCircle(cx, cy, ghost.range * ts).lineStyle(2, color, 0.7).strokeCircle(cx, cy, ghost.range * ts);
+      this.cursor.lineStyle(2, color, 1).strokeRect(ghost.x * ts + 1, ghost.y * ts + 1, ts - 2, ts - 2);
+      if (ghost.ok) this.drawTowerIcon(this.cursor, cx, cy, ts, color);
+      if (ghost.from) this.snapConnector(ghost.from, { x: ghost.x + 0.5, y: ghost.y + 0.5 });
       return null;
     }
     if (ghost.kind === 'rect') {
@@ -402,7 +610,26 @@ export class EditorScene extends Phaser.Scene {
       this.cursor.fillStyle(c.ok ? 0x40e060 : 0xff3040, c.role === 'B' ? 0.4 : 0.22).fillRect(c.x * ts + 1, c.y * ts + 1, ts - 2, ts - 2);
     }
     this.cursor.lineStyle(2, check.ok ? 0x40e060 : 0xff3040, 1).strokeRect(b.x * ts + 1, b.y * ts + 1, b.w * ts - 2, b.h * ts - 2);
+    if (ghost.from) this.snapConnector(ghost.from, { x: ghost.x + 0.5, y: ghost.y + 0.5 });
     return check;
+  }
+
+  /** Dashed line from the pointer's cell to where a snapped drop will land, with a ring on the pointer. */
+  private snapConnector(from: { x: number; y: number }, to: { x: number; y: number }) {
+    const ts = this.view.tileSize;
+    const fx = (from.x + 0.5) * ts;
+    const fy = (from.y + 0.5) * ts;
+    const tx = to.x * ts;
+    const ty = to.y * ts;
+    const len = Math.hypot(tx - fx, ty - fy);
+    const g = this.cursor;
+    g.lineStyle(2, 0xffffff, 0.9);
+    for (let d = 0; d < len; d += 8) {
+      const e = Math.min(d + 4, len);
+      g.lineBetween(fx + ((tx - fx) * d) / len, fy + ((ty - fy) * d) / len, fx + ((tx - fx) * e) / len, fy + ((ty - fy) * e) / len);
+    }
+    g.lineStyle(2, 0xffffff, 0.6).strokeCircle(fx, fy, ts * 0.22);
+    g.fillStyle(0xffffff, 1).fillCircle(tx, ty, 3);
   }
 
   /** Short red flash on refusal. */

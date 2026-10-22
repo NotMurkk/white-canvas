@@ -217,3 +217,35 @@ code { font: 12px ui-monospace, monospace; color: #ffd98a; }
 .theme-table tr.current td:first-child strong { color: var(--accent); }
 .theme-notes { margin: 4px 0 0; padding-left: 16px; color: var(--muted); }
 .theme-notes.bad, .bad-text { color: var(--warn); }
+
+/* Phase 4: test towers and the coverage heatmap */
+.range-row { display: flex; align-items: center; gap: 8px; font-size: 12px; margin-bottom: 6px; }
+.range-row input { flex: 1; min-width: 0; }
+.range-row span { color: var(--muted); white-space: nowrap; }
+.tower-list { list-style: none; margin: 0 0 8px; padding: 0; display: grid; gap: 2px; font-size: 12px; }
+.tower-list li span { color: var(--muted); margin-left: 4px; }
+.tower-list li.bad span { color: #ff8080; }
+.heat-legend { display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; font-size: 11px; color: var(--muted); }
+.heat-legend i { grid-column: 1 / -1; height: 8px; border-radius: 2px; background: linear-gradient(90deg, #2c105c, #711f81, #b63679, #ee605e, #fdae78, #fcfdbf); }
+.heat-legend span:last-child { text-align: right; }
+
+/* Phase 4: marquee selection and clipboard */
+.layer-checks { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; margin: 6px 0 8px; }
+.layer-checks label { display: flex; align-items: center; gap: 4px; }
+.row-buttons { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 8px; }
+.clip-info { font-size: 12px; color: var(--muted); margin: 4px 0 8px; }
+.row-buttons .danger { margin-top: 0; }
+
+/* Phase 4: palette search, pins and recents */
+.lib-search { width: 100%; margin: 0 0 6px; }
+.lib-recent { display: flex; flex-wrap: wrap; gap: 4px; margin: 0 0 6px; }
+.lib-recent button { display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; font-size: 11px; }
+.lib-recent button.on { border-color: var(--accent); }
+.lib-recent .chip { width: 8px; height: 8px; }
+.lib-group { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 4px 0 2px; font-weight: 600; }
+.lib-row { display: flex; align-items: stretch; gap: 2px; }
+.lib-row .swatch { flex: 1; min-width: 0; }
+.pin { background: transparent; border-color: transparent; padding: 0 6px; color: var(--muted); font-size: 13px; opacity: 0.45; }
+.lib-row:hover .pin, .pin.on, .pin:focus-visible { opacity: 1; }
+.pin.on { color: #f0c040; }
+.paste-banner { background: #1d3a50; color: #e8f4ff; }

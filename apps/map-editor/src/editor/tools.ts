@@ -3,10 +3,10 @@
 // when the rules say no. Nothing here touches Phaser.
 import { DIRECTIONS, DIR_BITS, NO_PATH, newId, type Direction, type JunctionPolicy, type Spawn } from '@tdmm/map-format';
 import { DIRS, stepCells, type Cell } from '@tdmm/pathing';
-import { checkPlacement, footprintCells, occupancy } from '@tdmm/rules';
+import { BUILD_BLOCK_REASON, checkPlacement, footprintCells, occupancy } from '@tdmm/rules';
 import type { EditorDocument } from './document.ts';
 
-export type ToolId = 'select' | 'terrain' | 'path' | 'spawn' | 'exit' | 'air' | 'stamp' | 'zone' | 'eraser';
+export type ToolId = 'select' | 'terrain' | 'path' | 'spawn' | 'exit' | 'air' | 'stamp' | 'zone' | 'eraser' | 'tower';
 export type TerrainMode = 'pencil' | 'rect' | 'fill';
 
 export interface Outcome {
@@ -180,6 +180,56 @@ export function placeStamp(doc: EditorDocument, c: Cell, kind: string): Outcome 
   const id = newId('o', doc.state.objects.map((o) => o.id));
   doc.editList('objects', (l) => l.push({ id, kind, x: c.x, y: c.y }));
   return { changed: true, placedId: id };
+}
+
+// ---- forgiveness snapping -------------------------------------------------------------------------
+// Levelhead-style forgiveness: deliver what the designer meant from an imprecise click. A drop that
+// doesn't fit but has a legal spot one cell away goes there instead (the ghost shows the jump).
+
+/** The cell and its 8 neighbours, nearest to the exact pointer position first. */
+export function nearbyCells(c: Cell, pointer?: Point): Cell[] {
+  const [px, py] = pointer ?? [c.x + 0.5, c.y + 0.5];
+  const cells: Cell[] = [];
+  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) cells.push({ x: c.x + dx, y: c.y + dy });
+  const d = (k: Cell) => (k.x === c.x && k.y === c.y ? -1 : Math.hypot(k.x + 0.5 - px, k.y + 0.5 - py));
+  return cells.sort((a, b) => d(a) - d(b));
+}
+
+export interface Snap {
+  cell: Cell;
+  /** True when the result is not the cell under the pointer. */
+  snapped: boolean;
+  /** Why the cell under the pointer was refused (when snapped). */
+  reason?: string;
+}
+
+/** Where a stamp of `kind` would go for a click at `c`: there if it fits, else the nearest spot one cell away. */
+export function snapStamp(doc: EditorDocument, kind: string, c: Cell, pointer?: Point, ignoreId?: string): Snap | null {
+  const occ = occupancy(doc.state, doc.reg, ignoreId);
+  const here = checkPlacement(doc.state, doc.reg, kind, c.x, c.y, occ);
+  if (here.ok) return { cell: c, snapped: false };
+  for (const n of nearbyCells(c, pointer).slice(1)) {
+    if (checkPlacement(doc.state, doc.reg, kind, n.x, n.y, occ).ok) return { cell: n, snapped: true, reason: here.reason };
+  }
+  return null;
+}
+
+/** Ground spawns and exits belong on path cells: a click next to one lands on it (dead ends first for exits). */
+export function snapToPath(doc: EditorDocument, c: Cell, preferEnds: boolean, pointer?: Point): Snap | null {
+  if (doc.path.isPath(c)) return { cell: c, snapped: false };
+  const near = nearbyCells(c, pointer).slice(1).filter((n) => doc.path.isPath(n));
+  const best = (preferEnds && near.find((n) => doc.path.out(n) === 0)) || near[0];
+  return best ? { cell: best, snapped: true, reason: 'Not a path cell' } : null;
+}
+
+/** Test towers go on cells that take a tower: there, or the nearest such cell one away. */
+export function snapTower(doc: EditorDocument, c: Cell, pointer?: Point): Snap | null {
+  const block = doc.validate().buildable.block;
+  const free = (k: Cell) => doc.inside(k.x, k.y) && !block[k.y * doc.width + k.x];
+  if (free(c)) return { cell: c, snapped: false };
+  const n = nearbyCells(c, pointer).slice(1).find(free);
+  const why = doc.inside(c.x, c.y) ? BUILD_BLOCK_REASON[block[c.y * doc.width + c.x]!] : 'off the map';
+  return n ? { cell: n, snapped: true, reason: why } : null;
 }
 
 /** The object drawn at a cell (any part of its art), front-most first. */

@@ -1,9 +1,12 @@
 import Phaser from 'phaser';
 import { DIR_E, DIR_N, DIR_S, DIR_W, NO_PATH, emptyWaves, newId, parseMap, parseWaves, printMap, printWaves, type MapDoc, type Problem, type WavesDoc } from '@tdmm/map-format';
 import { GameScene, GAME_SCENE_KEY, type GameSceneData } from '@tdmm/game/scene';
-import { BUILD_BLOCK_REASON, footprintBounds, rangeMultiplierAt } from '@tdmm/rules';
+import { BUILD_BLOCK_REASON, coverageMap, rangeMultiplierAt, routeShares, towerCoverage } from '@tdmm/rules';
 import { clearCheckIsCurrent, runClearCheck } from '@tdmm/sim';
+import * as C from './clipboard.ts';
 import type { Change } from './document.ts';
+import * as P from './palette.ts';
+import { summarizeRun, type RunSummary } from './trails.ts';
 import { EditorScene, EDITOR_SCENE_KEY, type Ghost } from './EditorScene.ts';
 import { play, setMuted } from './sound.ts';
 import { SaveConflictError, clearAutosaves, latestAutosave, listMaps, listThemes, loadMapFiles, saveMapFiles, writeAutosave } from './storage.ts';
@@ -20,6 +23,7 @@ type Gesture =
   | { kind: 'stamp'; last: Cell }
   | { kind: 'moveObject'; id: string; offset: Cell; last: Cell }
   | { kind: 'waypoint'; routeId: string; index: number }
+  | { kind: 'marquee'; start: Cell; end: Cell }
   | null;
 
 /**
@@ -60,6 +64,16 @@ export class EditorController {
     showArrows: true,
     showBuildable: false,
     buildableOpacity: 0.6,
+    showCoverage: false,
+    coverageMax: 0,
+    testRange: 3,
+    testTowers: [],
+    layers: { terrain: true, path: true, objects: true, zones: true },
+    paste: null,
+    clipInfo: null,
+    library: P.loadPrefs(),
+    lastRun: null,
+    showTrails: true,
     muted: false,
     problems: [],
     errors: 0,
@@ -89,6 +103,11 @@ export class EditorController {
   private toastId = 0;
   private lastHover: Cell | null = null;
   private lastWorld: [number, number] | null = null;
+  /** Shift held: place exactly under the pointer, no forgiveness snapping. */
+  private exact = false;
+  private clip: C.Clip | null = null;
+  /** The last playtest; cleared by the next edit. */
+  private runTrails: RunSummary | null = null;
   private clearTimer: ReturnType<typeof setTimeout> | undefined;
 
   mount(host: HTMLElement, mapId: string) {
@@ -124,6 +143,11 @@ export class EditorController {
     };
     window.addEventListener('beforeunload', beforeUnload);
     this.cleanups.push(() => window.removeEventListener('beforeunload', beforeUnload));
+    // The clipboard lives in localStorage: a copy in another tab shows up here too.
+    const onStorage = (e: StorageEvent) => e.key === 'tdmm:clipboard' && this.setClip(C.loadClip());
+    window.addEventListener('storage', onStorage);
+    this.cleanups.push(() => window.removeEventListener('storage', onStorage));
+    this.setClip(C.loadClip());
     void this.refreshMapList();
     void this.refreshThemes();
     void this.openMap(mapId);
@@ -281,7 +305,11 @@ export class EditorController {
       stats: null,
       clear: { status: 'idle', problems: [], savedCurrent: false },
       theme: scene.themeId,
+      testTowers: [],
+      lastRun: null,
+      paste: null,
     });
+    this.runTrails = null;
     this.syncStore();
   }
 
@@ -289,6 +317,7 @@ export class EditorController {
 
   private onDocChange(c: Change) {
     if (c.fromHistory && c.cells.length) this.revealCells(c.cells.map((x) => x.index));
+    this.clearTrails(); // any edit can change the routes the trails describe
     if (!this.syncQueued) {
       this.syncQueued = true;
       requestAnimationFrame(() => {
@@ -321,7 +350,67 @@ export class EditorController {
     });
     this.scheduleClearCheck();
     this.scene?.setSelection(prev.selection, prev.airDraft);
+    this.refreshCoverage();
     if (this.lastHover) this.setHover(this.lastHover);
+  }
+
+  /**
+   * Recomputes test-tower readouts and (when shown) the coverage heatmap. Routes are weighted by
+   * the share of enemies the last clear check sent down each one.
+   */
+  private refreshCoverage() {
+    const scene = this.scene;
+    if (!scene) return;
+    const doc = scene.doc;
+    const s = this.store.get();
+    const v = doc.validate();
+    const routes = v.compiled.routes;
+    const shares = routeShares(routes, s.stats?.map((r) => r.byRoute));
+    const towers = s.testTowers.map((t) => {
+      const c = towerCoverage(doc.state, doc.reg, routes, shares, t.x, t.y, s.testRange);
+      return { x: t.x, y: t.y, range: c.range, expected: c.expected, ok: doc.inside(t.x, t.y) && !v.buildable.block[t.y * doc.width + t.x] };
+    });
+    const heat = s.showCoverage ? coverageMap(doc.state, doc.reg, routes, shares, s.testRange, v.buildable) : null;
+    let max = 0;
+    if (heat) for (const h of heat) max = Math.max(max, h);
+    this.store.set({ testTowers: towers, coverageMax: max });
+    scene.setCoverage(heat, max, towers);
+  }
+
+  setTestRange(testRange: number) {
+    this.store.set({ testRange });
+    this.refreshCoverage();
+    if (this.lastHover) this.setHover(this.lastHover);
+  }
+
+  clearTestTowers() {
+    this.store.set({ testTowers: [] });
+    this.refreshCoverage();
+  }
+
+  /** Test tower tool: click drops a probe tower (or removes the one there); right-click removes. */
+  private testTowerDown(cell: Cell, right: boolean) {
+    const doc = this.scene!.doc;
+    const towers = this.store.get().testTowers;
+    const at = (c: Cell) => towers.findIndex((t) => t.x === c.x && t.y === c.y);
+    if (right || at(cell) >= 0) {
+      const i = at(cell);
+      if (i < 0) return;
+      this.store.set({ testTowers: towers.filter((_, k) => k !== i) });
+      play('erase');
+    } else {
+      const snap = T.snapTower(doc, cell, this.lastWorld ?? undefined);
+      const target = snap && (!snap.snapped || !this.exact) ? snap.cell : null;
+      if (!target) {
+        const block = doc.inside(cell.x, cell.y) ? doc.validate().buildable.block[cell.y * doc.width + cell.x]! : 0;
+        this.feedback({ changed: false, refused: `No towers here: ${block ? BUILD_BLOCK_REASON[block] : 'off the map'}.` }, cell, 'place');
+        return;
+      }
+      if (at(target) >= 0) return;
+      this.store.set({ testTowers: [...towers, { ...target, range: 0, expected: 0, ok: true }] });
+      play('place');
+    }
+    this.refreshCoverage();
   }
 
   /**
@@ -339,12 +428,17 @@ export class EditorController {
       const savedCurrent = !doc.dirty && !!doc.loadedClearCheck && clearCheckIsCurrent(doc.state, doc.reg, { ...doc.waves, clearCheck: doc.loadedClearCheck });
       const summary = r.record ? `${r.record.rounds} rounds · ${r.record.enemies} enemies · ${r.record.durationSec}s with no towers` : undefined;
       this.store.set({ clear: { status: r.passed ? 'passed' : 'failed', problems: r.problems, savedCurrent, summary, fingerprint: r.gameplayHash }, stats: r.stats.length ? r.stats : null });
+      this.refreshCoverage(); // route shares come from the simulated rounds
     }, 400);
   }
 
   private buildInspect(sel: Selection): Inspect | null {
     const doc = this.scene?.doc;
     if (!doc || !sel) return null;
+    if (sel.kind === 'region') {
+      const region = { x0: sel.x0, y0: sel.y0, x1: sel.x1, y1: sel.y1 };
+      return { kind: 'region', region, w: sel.x1 - sel.x0 + 1, h: sel.y1 - sel.y0 + 1, counts: C.regionCounts(doc.state, region) };
+    }
     const v = doc.validate();
     const usedBy = (pred: (g: { spawn: string; route: string | null }) => boolean) => doc.waves.rounds.reduce((n, r) => n + r.groups.filter(pred).length, 0);
     if (sel.kind === 'object') {
@@ -400,22 +494,135 @@ export class EditorController {
   // ---- commands ---------------------------------------------------------------------------------
 
   setTool(tool: T.ToolId) {
-    this.store.set({ tool });
+    this.store.set({ tool, paste: null });
     if (this.lastHover) this.setHover(this.lastHover);
   }
 
-  setBrush(patch: Partial<EditorUiState['brush']>) {
-    this.store.set({ brush: { ...this.store.get().brush, ...patch } });
+  // ---- marquee, copy and paste ------------------------------------------------------------------
+
+  setLayers(patch: Partial<C.LayerFilter>) {
+    this.store.set({ layers: { ...this.store.get().layers, ...patch } });
+    this.scene?.setSelection(this.store.get().selection, this.store.get().airDraft);
+  }
+
+  private setClip(clip: C.Clip | null) {
+    if (clip) this.clip = clip;
+    this.store.set({ clipInfo: this.clip ? { w: this.clip.w, h: this.clip.h, layers: this.clip.layers } : null });
+  }
+
+  selectAll() {
+    const doc = this.scene?.doc;
+    if (!doc) return;
+    this.store.set({ tool: 'select', paste: null });
+    this.select({ kind: 'region', x0: 0, y0: 0, x1: doc.width - 1, y1: doc.height - 1 });
+  }
+
+  /** Copies the marquee selection (its checked layers); `cut` also clears them. */
+  copySelection(cut = false) {
+    const doc = this.scene?.doc;
+    const s = this.store.get();
+    const sel = s.selection;
+    if (!doc) return;
+    if (sel?.kind !== 'region') {
+      this.toast('Drag a box with the Select tool (V) first, then copy.', 'info');
+      return;
+    }
+    const clip = C.copyRegion(doc.state, sel, s.layers);
+    if (!clip || !clip.layers.length) {
+      this.toast('Tick at least one layer to copy.', 'warn');
+      return;
+    }
+    this.clip = clip;
+    C.saveClip(clip);
+    this.setClip(clip);
+    if (cut) {
+      const base = T.baseTerrain(doc, this.scene!.assets.theme.terrain);
+      this.edit('Cut', (d) => ({ changed: C.eraseRegion(d, sel, s.layers, base) }));
+      play('erase');
+    }
+    this.toast(`${cut ? 'Cut' : 'Copied'} ${clip.w}×${clip.h}: ${clip.layers.join(', ')}. Ctrl+V to paste.`, 'ok');
+  }
+
+  /** Paste mode: the clip follows the pointer, green where it fits; click places it (again and again). */
+  startPaste() {
+    this.setClip(C.loadClip());
+    const clip = this.clip;
+    if (!clip) {
+      this.toast('Nothing copied yet. Drag a box with the Select tool (V) and press Ctrl+C.', 'info');
+      return;
+    }
+    this.store.set({ paste: { w: clip.w, h: clip.h } });
     if (this.lastHover) this.setHover(this.lastHover);
+  }
+
+  stopPaste() {
+    if (!this.store.get().paste) return;
+    this.store.set({ paste: null });
+    this.scene?.showPaste(null);
+    if (this.lastHover) this.setHover(this.lastHover);
+  }
+
+  /** Top-left cell of the clip when the pointer is at `cell` (the pointer holds its middle). */
+  private pasteOrigin(cell: Cell, clip: C.Clip): Cell {
+    return { x: cell.x - Math.floor((clip.w - 1) / 2), y: cell.y - Math.floor((clip.h - 1) / 2) };
+  }
+
+  private commitPaste(cell: Cell) {
+    const doc = this.scene?.doc;
+    const clip = this.clip;
+    if (!doc || !clip) return;
+    const plan = C.planPaste(doc.state, doc.reg, clip, this.pasteOrigin(cell, clip));
+    if (!plan.ok) {
+      this.feedback({ changed: false, refused: plan.reason }, plan.bad[0] ?? cell, 'place');
+      return;
+    }
+    this.edit('Paste', (d) => {
+      C.applyPaste(d, plan);
+      return { changed: true };
+    });
+    play('place');
+  }
+
+  setBrush(patch: Partial<EditorUiState['brush']>) {
+    let library = this.store.get().library;
+    for (const list of ['stamp', 'terrain', 'path', 'zone'] as const) {
+      const id = patch[list];
+      if (id) library = P.noteRecent(library, list, id);
+    }
+    P.savePrefs(library);
+    this.store.set({ brush: { ...this.store.get().brush, ...patch }, library });
+    if (this.lastHover) this.setHover(this.lastHover);
+  }
+
+  // ---- palette library: search, pins, recents ---------------------------------------------------
+
+  /** The items a palette list offers, in content order. */
+  libraryItems(list: P.LibraryList): P.LibraryItem[] {
+    const s = this.store.get();
+    if (list === 'stamp') return s.stamps.map((k) => ({ id: k.id, name: k.name, color: k.color, category: k.category, note: `${k.w}×${k.h}` }));
+    if (list === 'zone') return s.zoneTypes;
+    return s.terrains.filter((t) => list === 'terrain' || t.pathStyle);
+  }
+
+  setLibraryQuery(query: string) {
+    this.store.set({ library: { ...this.store.get().library, query } });
+  }
+
+  togglePin(list: P.LibraryList, id: string) {
+    const library = P.togglePin(this.store.get().library, list, id);
+    P.savePrefs(library);
+    this.store.set({ library });
   }
 
   setTerrainMode(terrainMode: T.TerrainMode) {
     this.store.set({ terrainMode, tool: 'terrain' });
   }
 
-  setOverlay(patch: Partial<Pick<EditorUiState, 'showGrid' | 'showArrows' | 'showBuildable' | 'buildableOpacity' | 'muted'>>) {
+  setOverlay(patch: Partial<Pick<EditorUiState, 'showGrid' | 'showArrows' | 'showBuildable' | 'buildableOpacity' | 'showCoverage' | 'showTrails' | 'muted'>>) {
     this.store.set(patch);
     if (patch.muted !== undefined) setMuted(patch.muted);
+    if (patch.showCoverage !== undefined) this.refreshCoverage();
+    if (patch.showTrails !== undefined) this.scene?.setTrails(patch.showTrails ? this.runTrails : null);
     const s = this.store.get();
     if (this.scene) {
       Object.assign(this.scene.options, { showGrid: s.showGrid, showArrows: s.showArrows, showBuildable: s.showBuildable, buildableOpacity: s.buildableOpacity });
@@ -549,6 +756,14 @@ export class EditorController {
   deleteSelection() {
     const sel = this.store.get().selection;
     if (!sel || sel.kind === 'junction') return;
+    if (sel.kind === 'region') {
+      const scene = this.scene;
+      if (!scene) return;
+      const base = T.baseTerrain(scene.doc, scene.assets.theme.terrain);
+      this.edit('Delete selection', (doc) => ({ changed: C.eraseRegion(doc, sel, this.store.get().layers, base) }));
+      play('erase');
+      return;
+    }
     const list = sel.kind === 'object' ? 'objects' : sel.kind === 'spawn' ? 'spawns' : sel.kind === 'exit' ? 'exits' : 'airRoutes';
     this.edit(`Delete ${sel.kind}`, (doc) => T.deleteById(doc, list, sel.id));
     play('erase');
@@ -635,9 +850,21 @@ export class EditorController {
 
   stopPlay() {
     if (!this.game || !this.scene || this.store.get().mode !== 'play') return;
+    const log = (this.game.scene.getScene(GAME_SCENE_KEY) as GameScene | null)?.runLog() ?? [];
     this.game.scene.stop(GAME_SCENE_KEY);
     this.scene.scene.wake();
     this.store.set({ mode: 'edit' });
+    this.runTrails = summarizeRun(log, this.scene.doc.state.exits);
+    this.store.set({ lastRun: this.runTrails ? { enemies: this.runTrails.enemies, leaked: this.runTrails.leaked } : null });
+    this.scene.setTrails(this.store.get().showTrails ? this.runTrails : null);
+    if (this.runTrails) this.toast(`Last run: ${this.runTrails.enemies} enemies, ${this.runTrails.leaked} leaked. Trails stay until your next edit (L hides them).`, 'info');
+  }
+
+  private clearTrails() {
+    if (!this.runTrails) return;
+    this.runTrails = null;
+    this.store.set({ lastRun: null });
+    this.scene?.setTrails(null);
   }
 
   focusProblem(p: Problem) {
@@ -682,12 +909,19 @@ export class EditorController {
     }
     if (e.button !== 0 && e.button !== 2) return;
     const cell = this.cellAt(e);
+    this.lastWorld = this.worldAt(e);
+    this.exact = e.shiftKey;
     if (e.button === 0 && e.altKey) {
       this.eyedropper(cell);
       return;
     }
     const right = e.button === 2;
     const s = this.store.get();
+    if (s.paste) {
+      if (right) this.stopPaste();
+      else this.commitPaste(cell);
+      return;
+    }
     const doc = scene.doc;
     const base = T.baseTerrain(doc, scene.assets.theme.terrain);
     doc.begin(`${s.tool}`);
@@ -711,15 +945,19 @@ export class EditorController {
         }
         break;
       case 'spawn':
-        this.feedback(right ? T.removeMarkerAt(doc, cell) : T.placeSpawn(doc, cell, s.brush.spawn), cell, right ? 'erase' : 'place');
+      case 'exit': {
+        if (right) this.feedback(T.removeMarkerAt(doc, cell), cell, 'erase');
+        else {
+          const at = this.markerSnap(cell)?.cell ?? cell;
+          this.feedback(s.tool === 'exit' ? T.placeExit(doc, at) : T.placeSpawn(doc, at, s.brush.spawn), at, 'place');
+        }
         break;
-      case 'exit':
-        this.feedback(right ? T.removeMarkerAt(doc, cell) : T.placeExit(doc, cell), cell, right ? 'erase' : 'place');
-        break;
+      }
       case 'stamp':
         if (right) this.feedback(T.removeObjectAt(doc, cell), cell, 'erase');
         else {
-          this.feedback(T.placeStamp(doc, cell, s.brush.stamp), cell, 'place');
+          const at = this.stampSnap(s.brush.stamp, cell)?.cell ?? cell;
+          this.feedback(T.placeStamp(doc, at, s.brush.stamp), at, 'place');
           this.gesture = { kind: 'stamp', last: cell };
         }
         break;
@@ -728,6 +966,9 @@ export class EditorController {
         break;
       case 'eraser':
         this.startCells(cell, (c) => T.eraseAt(doc, c, base), 'erase');
+        break;
+      case 'tower':
+        this.testTowerDown(cell, right);
         break;
       case 'select':
         this.selectDown(cell, this.worldAt(e), right);
@@ -739,9 +980,17 @@ export class EditorController {
     if (!this.gesture) this.endTransaction();
   }
 
-  /** Select tool: pick the top-most thing; drag objects and flight-path waypoints to move them. */
+  /**
+   * Select tool: pick the top-most thing; drag objects and flight-path waypoints to move them.
+   * Dragging from empty ground (or Shift+drag anywhere) draws a marquee for copy and paste.
+   */
   private selectDown(cell: Cell, world: [number, number], right: boolean) {
     const doc = this.scene!.doc;
+    if (this.exact && !right) {
+      this.select(null, false);
+      this.gesture = { kind: 'marquee', start: cell, end: cell };
+      return;
+    }
     const wp = T.nearestWaypoint(doc, world);
     if (wp && !right) {
       this.select({ kind: 'airRoute', id: wp.routeId });
@@ -755,6 +1004,7 @@ export class EditorController {
     const sel: Selection = spawn ? { kind: 'spawn', id: spawn.id } : exit ? { kind: 'exit', id: exit.id } : isJunction ? { kind: 'junction', cell: [cell.x, cell.y] } : o ? { kind: 'object', id: o.id } : null;
     this.select(sel, !!sel);
     if (sel?.kind === 'object' && o && !right) this.gesture = { kind: 'moveObject', id: o.id, offset: { x: cell.x - o.x, y: cell.y - o.y }, last: cell };
+    else if (!sel && !right) this.gesture = { kind: 'marquee', start: cell, end: cell };
   }
 
   /** Flight path tool: click an air spawn, click waypoints, click an exit. Drag/right-click handles. */
@@ -823,7 +1073,7 @@ export class EditorController {
         const r = T.pathExtend(doc, g.last, cell, g.style);
         this.feedback(r, cell, 'paint', true);
         g.last = r.last;
-      } else if (g?.kind === 'rect') {
+      } else if (g?.kind === 'rect' || g?.kind === 'marquee') {
         g.end = cell;
       } else if (g?.kind === 'stamp' && (cell.x !== g.last.x || cell.y !== g.last.y)) {
         g.last = cell;
@@ -831,14 +1081,18 @@ export class EditorController {
         if (r.changed) this.feedback(r, cell, 'place', true); // dragging only places where it fits
       } else if (g?.kind === 'moveObject' && (cell.x !== g.last.x || cell.y !== g.last.y)) {
         g.last = cell;
-        // Only moves to spots where it fits; the object stays put (and the ghost shows why) otherwise.
-        T.moveObject(doc, g.id, cell.x - g.offset.x, cell.y - g.offset.y);
+        // Only moves to spots where it fits, or the nearest one a cell away; otherwise it stays put.
+        const o = doc.state.objects.find((v) => v.id === g.id);
+        const want = { x: cell.x - g.offset.x, y: cell.y - g.offset.y };
+        const to = (o && !this.exact && T.snapStamp(doc, o.kind, want, undefined, o.id)?.cell) || want;
+        T.moveObject(doc, g.id, to.x, to.y);
       } else if (g?.kind === 'waypoint') {
         const [wx, wy] = this.worldAt(ev);
         T.moveWaypoint(doc, g.routeId, g.index, [Math.round(wx * 2) / 2, Math.round(wy * 2) / 2]);
       }
     }
     this.lastWorld = this.worldAt(e);
+    this.exact = e.shiftKey;
     this.setHover(this.cellAt(e));
     if (this.store.get().airDraft) this.scene?.setDraftCursor(this.lastWorld);
   }
@@ -851,6 +1105,10 @@ export class EditorController {
     if (g.kind === 'rect' && this.scene) {
       const s = this.store.get();
       this.feedback(T.paintTerrainCells(this.scene.doc, T.rectCells(g.start, g.end), s.brush.terrain), g.end, 'paint');
+    }
+    if (g.kind === 'marquee' && this.scene && (g.start.x !== g.end.x || g.start.y !== g.end.y)) {
+      const r = C.clampRegion(C.normRegion(g.start, g.end), this.scene.doc.width, this.scene.doc.height);
+      if (r) this.select({ kind: 'region', ...r });
     }
     this.endTransaction();
     if (this.lastHover) this.setHover(this.lastHover); // drop the rectangle preview
@@ -928,7 +1186,9 @@ export class EditorController {
         target.tagName === 'SELECT' ||
         target.isContentEditable);
     if (typing) return;
-    if (e.code === 'Space') {
+    // Some synthetic and IME events leave `code` empty; fall back to the key's letter or digit.
+    const code = e.code || (/^[a-z]$/i.test(e.key) ? `Key${e.key.toUpperCase()}` : /^[0-9]$/.test(e.key) ? `Digit${e.key}` : e.key === ' ' ? 'Space' : e.key);
+    if (code === 'Space') {
       this.spaceHeld = down;
       if (this.store.get().mode === 'edit') e.preventDefault();
       return;
@@ -937,38 +1197,42 @@ export class EditorController {
     const mod = e.ctrlKey || e.metaKey;
     const s = this.store.get();
     if (mod) {
-      if (e.code === 'KeyZ') this.run(e, () => (e.shiftKey ? this.redo() : this.undo()));
-      else if (e.code === 'KeyY') this.run(e, () => this.redo());
-      else if (e.code === 'KeyS') this.run(e, () => void this.save());
+      if (code === 'KeyZ') this.run(e, () => (e.shiftKey ? this.redo() : this.undo()));
+      else if (code === 'KeyY') this.run(e, () => this.redo());
+      else if (code === 'KeyS') this.run(e, () => void this.save());
+      else if (code === 'KeyC') this.run(e, () => this.copySelection());
+      else if (code === 'KeyX') this.run(e, () => this.copySelection(true));
+      else if (code === 'KeyV') this.run(e, () => this.startPaste());
+      else if (code === 'KeyA') this.run(e, () => this.selectAll());
       return;
     }
-    const tools: Record<string, T.ToolId> = { KeyV: 'select', KeyT: 'terrain', KeyR: 'path', KeyS: 'spawn', KeyE: 'exit', KeyQ: 'air', KeyO: 'stamp', KeyZ: 'zone', KeyX: 'eraser' };
-    if ((e.code === 'Delete' || e.code === 'Backspace') && s.selection) return this.run(e, () => this.deleteSelection());
-    if (tools[e.code]) return this.setTool(tools[e.code]!);
-    if (e.code === 'KeyG') return this.setOverlay({ showGrid: !s.showGrid });
-    if (e.code === 'KeyB') return this.setOverlay({ showBuildable: !s.showBuildable });
-    if (e.code === 'KeyA') return this.setOverlay({ showArrows: !s.showArrows });
-    if (e.code === 'KeyM') return this.setOverlay({ muted: !s.muted });
-    if (e.code === 'KeyF') return this.fitView();
-    if (e.code === 'KeyP') return this.play();
-    if (e.code === 'Escape') {
+    const tools: Record<string, T.ToolId> = { KeyV: 'select', KeyT: 'terrain', KeyR: 'path', KeyS: 'spawn', KeyE: 'exit', KeyQ: 'air', KeyO: 'stamp', KeyZ: 'zone', KeyX: 'eraser', KeyC: 'tower' };
+    if ((code === 'Delete' || code === 'Backspace') && s.selection) return this.run(e, () => this.deleteSelection());
+    if (tools[code]) return this.setTool(tools[code]!);
+    if (code === 'KeyG') return this.setOverlay({ showGrid: !s.showGrid });
+    if (code === 'KeyB') return this.setOverlay({ showBuildable: !s.showBuildable });
+    if (code === 'KeyA') return this.setOverlay({ showArrows: !s.showArrows });
+    if (code === 'KeyH') return this.setOverlay({ showCoverage: !s.showCoverage });
+    if (code === 'KeyL') return this.setOverlay({ showTrails: !s.showTrails });
+    if (code === 'KeyM') return this.setOverlay({ muted: !s.muted });
+    if (code === 'KeyF') return this.fitView();
+    if (code === 'KeyP') return this.play();
+    if (code === 'Escape') {
+      if (s.paste) return this.stopPaste();
       if (s.airDraft) {
         this.store.set({ airDraft: null });
         this.scene?.setSelection(s.selection, null);
       } else if (s.selection) this.select(null, false);
       return this.cancelGesture();
     }
-    const digit = /^Digit([1-9])$/.exec(e.code);
+    const digit = /^Digit([1-9])$/.exec(code);
     if (digit) {
       const n = Number(digit[1]) - 1;
-      if (s.tool === 'terrain' && s.terrains[n]) this.setBrush({ terrain: s.terrains[n]!.id });
-      if (s.tool === 'path') {
-        const styles = s.terrains.filter((t) => t.pathStyle);
-        if (styles[n]) this.setBrush({ path: styles[n]!.id });
-      }
-      if (s.tool === 'stamp' && s.stamps[n]) this.setBrush({ stamp: s.stamps[n]!.id });
+      // 1-9 follow the palette as shown: pinned first, then the rest, filtered by the search
+      const list = ({ terrain: 'terrain', path: 'path', stamp: 'stamp', zone: 'zone' } as const)[s.tool as 'terrain' | 'path' | 'stamp' | 'zone'];
+      const item = list && P.libraryView(this.libraryItems(list), list, s.library).ordered[n];
+      if (list && item) this.setBrush({ [list]: item.id });
       if (s.tool === 'spawn' && n < 2) this.setBrush({ spawn: n === 0 ? 'ground' : 'air' });
-      if (s.tool === 'zone' && s.zoneTypes[n]) this.setBrush({ zone: s.zoneTypes[n]!.id });
     }
   }
 
@@ -993,12 +1257,39 @@ export class EditorController {
     const color = (id: string) => parseInt((s.terrains.find((t) => t.id === id)?.color ?? '#ffffff').slice(1), 16);
     const g = this.gesture;
     let ghost: Ghost;
+    let snapNote: string | undefined;
+    if (s.paste && this.clip) {
+      scene.showGhost(null);
+      const at = this.pasteOrigin(cell, this.clip);
+      const plan = C.planPaste(doc.state, doc.reg, this.clip, at);
+      scene.showPaste({ clip: this.clip, at, plan });
+      const where = `paste ${this.clip.w}×${this.clip.h} at (${at.x}, ${at.y})`;
+      this.store.set({ hover: { x: cell.x, y: cell.y, lines: [plan.ok ? `${where} · click to place · right-click or Esc to stop` : `✗ ${plan.reason}`, ...(plan.ok ? [] : [where])] } });
+      return;
+    }
     if (g?.kind === 'rect') ghost = { kind: 'rect', x0: g.start.x, y0: g.start.y, x1: g.end.x, y1: g.end.y, color: color(s.brush.terrain) };
-    else if (s.tool === 'stamp') ghost = { kind: 'stamp', x: cell.x, y: cell.y, stamp: s.brush.stamp };
-    else {
+    else if (g?.kind === 'marquee') ghost = { kind: 'rect', x0: g.start.x, y0: g.start.y, x1: g.end.x, y1: g.end.y, color: 0x80d0ff };
+    else if (s.tool === 'stamp') {
+      const snap = g ? null : this.stampSnap(s.brush.stamp, cell);
+      const at = snap?.cell ?? cell;
+      ghost = { kind: 'stamp', x: at.x, y: at.y, stamp: s.brush.stamp, from: snap?.snapped ? cell : undefined };
+      if (snap?.snapped) snapNote = `↪ snaps one cell over (${snap.reason?.toLowerCase()} here) · hold Shift for exact`;
+    } else if (s.tool === 'tower') {
+      const snap = T.snapTower(doc, cell, this.lastWorld ?? undefined);
+      const at = snap && (!snap.snapped || !this.exact) ? snap.cell : null;
+      if (at) {
+        const v = doc.validate();
+        const c = towerCoverage(doc.state, doc.reg, v.compiled.routes, routeShares(v.compiled.routes, s.stats?.map((r) => r.byRoute)), at.x, at.y, s.testRange);
+        ghost = { kind: 'tower', x: at.x, y: at.y, range: c.range, ok: true, from: snap?.snapped ? cell : undefined };
+        snapNote = `test tower: ${c.expected.toFixed(1)} tiles of path in range (range ${Math.round(c.range * 100) / 100})${snap?.snapped ? ' · snapped one cell, Shift for exact' : ''}`;
+      } else ghost = { kind: 'tower', x: cell.x, y: cell.y, range: 0, ok: false };
+    } else {
       const zoneColor = parseInt((s.zoneTypes.find((z) => z.id === s.brush.zone)?.color ?? '#c070ff').slice(1), 16);
       const c = { terrain: color(s.brush.terrain), path: color(s.brush.path), spawn: 0xe83030, exit: 0xf8d030, zone: zoneColor, eraser: 0xffffff, stamp: 0, select: 0x80d0ff, air: 0x60c0f0 }[s.tool];
-      ghost = { kind: 'cell', x: cell.x, y: cell.y, color: c };
+      const snap = s.tool === 'spawn' || s.tool === 'exit' ? this.markerSnap(cell) : null;
+      const at = snap?.cell ?? cell;
+      ghost = { kind: 'cell', x: at.x, y: at.y, color: c, from: snap?.snapped ? cell : undefined };
+      if (snap?.snapped) snapNote = '↪ snaps to the path next to the pointer · hold Shift for exact';
     }
     const check = scene.showGhost(ghost);
 
@@ -1027,6 +1318,10 @@ export class EditorController {
       else {
         const classes = v.buildable.classes.filter((_, k) => v.buildable.classMask[i]! & (1 << k));
         lines.push(`towers: ${classes.join(', ')}`);
+        if (s.showCoverage && s.tool !== 'tower') {
+          const c = towerCoverage(doc.state, doc.reg, v.compiled.routes, routeShares(v.compiled.routes, s.stats?.map((r) => r.byRoute)), cell.x, cell.y, s.testRange);
+          lines.push(`coverage ${c.expected.toFixed(1)} tiles${s.coverageMax ? ` (${Math.round((c.expected / s.coverageMax) * 100)}% of best)` : ''}`);
+        }
       }
       const o = T.objectAt(doc, cell);
       if (o) lines.push(`${scene.assets.kinds[o.kind]?.name ?? o.kind} (${o.id})${o.removal ? ` · removable ${o.removal.cost}` : ''}`);
@@ -1034,7 +1329,24 @@ export class EditorController {
       if (marker) lines.push(`marker "${marker.id}"`);
     } else lines.push('outside the map');
     if (check && !check.ok && check.reason) lines.push(`✗ ${check.reason}`);
+    if (snapNote) lines.push(snapNote);
     this.store.set({ hover: { x: cell.x, y: cell.y, lines } });
+  }
+
+  /** Where a stamp click at `cell` lands: forgiveness snapping unless Shift is held. */
+  private stampSnap(kind: string, cell: Cell): T.Snap | null {
+    const doc = this.scene?.doc;
+    if (!doc) return null;
+    if (this.exact) return { cell, snapped: false };
+    return T.snapStamp(doc, kind, cell, this.lastWorld ?? undefined);
+  }
+
+  /** Ground spawns and exits snap onto a path cell next to the pointer (air spawns go anywhere). */
+  private markerSnap(cell: Cell): T.Snap | null {
+    const doc = this.scene?.doc;
+    const s = this.store.get();
+    if (!doc || this.exact || (s.tool === 'spawn' && s.brush.spawn === 'air')) return null;
+    return T.snapToPath(doc, cell, s.tool === 'exit', this.lastWorld ?? undefined);
   }
 
   private revealCells(indices: number[]) {

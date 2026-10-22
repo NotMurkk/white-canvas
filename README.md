@@ -22,19 +22,21 @@ npm run clearcheck   # re-run the clear check on every map (after content/ or si
 
 | Tool | Key | What it does |
 |---|---|---|
-| Select | V | Click to inspect an object, marker, junction or flight path. Drag objects (they only move where they fit) and flight-path handles. Delete removes. |
+| Select | V | Click to inspect an object, marker, junction or flight path. Drag objects (they only move where they fit) and flight-path handles. Delete removes. Drag on empty ground, or Shift+drag anywhere, to box-select for copy and paste. |
 | Enemy path | R | Drag in the direction enemies walk. Drag from an existing path cell to branch. Right-drag erases. Refuses water and objects. |
-| Spawn | S | Click a path cell at the map edge. Pick Ground or Air in the palette. Right-click removes. |
-| Exit | E | Click the last cell of a path. Right-click removes. |
+| Spawn | S | Click a path cell at the map edge; a click next to the path snaps onto it. Pick Ground or Air in the palette. Right-click removes. |
+| Exit | E | Click the last cell of a path; a click next to it snaps onto it. Right-click removes. |
 | Flight path | Q | Click an air spawn, click waypoints, click an exit. Drag handles to adjust; right-click a handle to delete it. |
 | Terrain | T | Pencil, Rectangle or Fill. Right-click (or Alt+click) picks the terrain under the cursor. |
-| Objects | O | Trees, rocks, buildings. The ghost is green where it fits and red with a reason where it doesn't. Right-click removes. |
+| Objects | O | Trees, rocks, buildings. The ghost is green where it fits and red with a reason where it doesn't. A drop that doesn't fit snaps to a spot one cell away that does; hold Shift for exact. Right-click removes. |
 | Zones | Z | No-build cells, or range zones such as high ground (+25%) and fog (−20%) from `content/zones.json`. |
 | Eraser | X | Removes the top-most thing: object, then marker, then path, then zone. |
+| Test tower | C | Drops probe towers that show their range and how much path they reach. They're never saved. Click again or right-click to remove. |
 
 Other shortcuts:
-- 1–9 picks a palette item.
-- G toggles the grid, A the path arrows, B the "where towers fit" overlay.
+- 1–9 picks a palette item, in the order the palette shows (pinned first). `/` jumps to the palette search.
+- G toggles the grid, A the path arrows, B the "where towers fit" overlay, H the coverage heatmap, L the last-run trails.
+- Ctrl+C / Ctrl+X / Ctrl+V copy, cut and paste a box selection; Delete clears it; Ctrl+A selects the whole map.
 - F fits the view, the wheel zooms, Space-drag or middle-drag pans.
 - Ctrl+Z / Ctrl+Y undo and redo; a whole stroke is one step.
 - Ctrl+S saves.
@@ -47,6 +49,13 @@ The **Inspect** tab edits what you selected:
 - **Flight paths:** smooth or straight.
 
 The **Check** tab starts with the **clear check**: every round is simulated with no towers, and every enemy must spawn and reach an exit. Saving stamps a passing result, with a hash of all gameplay data, into the waves file. The top bar shows **✓ Cleared** or **Draft**. Below the clear check, the Check tab lists every problem, such as dead ends, loops, an exit in the middle of the path, objects blocking the path, water under the path, or a wave pointing at a route that no longer exists. Click a problem to jump to it. The **Waves** tab edits rounds and groups (enemy, count, start, interval, spawn, and route or "Alternate").
+
+**Mario Maker feel.**
+- **Forgiveness snapping.** If an object, spawn, exit or test tower doesn't fit under the pointer but fits one cell away, the ghost jumps there with a dashed line back to the pointer, and the status bar says why. Shift places exactly. Fast path strokes fill skipped cells with elbows, so a path never has gaps.
+- **Test towers and the coverage heatmap.** The heatmap (H) colours every cell a tower can stand on by how much path a tower there would reach. Brighter is more, and the best cells get a white ring. The value is tiles of path in range for one enemy: each route counts by the share of enemies the clear check sends down it, and high ground and fog change the range. Test towers (C) show the same number for chosen spots. Set the range in the palette.
+- **Copy and paste.** Drag a box with the Select tool and choose which layers it takes: terrain, path, objects, zones. Objects come along when the cell they stand on is inside the box. Path links that leave the box are dropped. Paste (Ctrl+V) shows a ghost that follows the pointer, green where it fits and red with a reason where it doesn't (path over water, a tree on the path, overlaps). Each click pastes once and is one undo step. Pasting adds on top: terrain is replaced, but existing path cells keep their style. The clipboard is kept in the browser, so it works across maps and tabs.
+- **Palette search and pins.** Long lists get a search box (`/`). The star pins an item to the top, and recent picks show as chips. Pins and recents are remembered.
+- **Last-run trails.** After a playtest, the map shows how far enemies got down each route (orange for ground, blue for air, thicker for more enemies), where the ones still walking were when you stopped, and a red count at every exit that leaked. They stay until your next edit.
 
 **Seasonal themes.**
 - The theme picker in the top bar previews the map in any theme. Only the art changes: the document, the undo history and the gameplay fingerprint stay the same.
@@ -123,10 +132,15 @@ tools/                art generation, atlas build, pack importer, credits, dev-s
   - One atlas per theme, recording the resolved theme and a hash of its inputs.
   - Theme switcher and per-theme coverage in the editor.
   - The gameplay fingerprint, shown in the editor, never changes with the theme.
-- **Next, Phase 4 (Mario Maker feel).**
-  - Forgiveness snapping, a test-tower stamp with a coverage heatmap.
-  - Marquee copy and paste, palette search and pinning.
-  - Last-run enemy trails in playtest.
+- **Phase 4 (done).**
+  - Forgiveness snapping for objects, markers, test towers and object drags.
+  - Test-tower stamp and a coverage heatmap weighted by route share (`packages/rules/src/coverage.ts`).
+  - Box-select copy, cut, paste and delete with a layer filter, a validated paste ghost and a clipboard shared across tabs.
+  - Palette search, pins and recents; 1–9 follow the order shown.
+  - Last-run trails and leak markers from playtests.
+- **Next.**
+  - Budget meter and micro-animations, the rest of the report's Phase 4 list.
+  - A greedy coverage bot for the clear check, so "beatable" means more than "every enemy can walk to an exit".
 - **Real art (Batch A done).**
   - Ekat's Gen 3 tilesets, IgnathiusNZX's river water and CinnaYva's snow tileset are imported and used first in both themes.
   - Kinds now match the art: the house is 5×5.
