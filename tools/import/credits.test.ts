@@ -1,3 +1,4 @@
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { buildCredits, serializeCredits } from './credits.ts';
@@ -84,7 +85,13 @@ describe('buildCredits', () => {
     expect(buildCredits(root).errors.join(' ')).toMatch(/does not validate/);
   });
 
-  it('succeeds on the real repo (only the generated placeholder pack is used today)', () => {
+  // The atlases use downloaded packs (assets/raw/, git-ignored), so this needs those downloads.
+  const atlasDir = join(REPO_ROOT, 'assets', 'atlases');
+  const notDownloaded = readdirSync(atlasDir)
+    .filter((f) => f.endsWith('.atlas.json'))
+    .flatMap((f) => (JSON.parse(readFileSync(join(atlasDir, f), 'utf8')) as { sources: { file: string }[] }).sources)
+    .some((s) => !existsSync(join(REPO_ROOT, s.file)));
+  it.skipIf(notDownloaded)(`succeeds on the real repo${notDownloaded ? ' (skipped: the packs the atlases use are not downloaded here)' : ''}`, () => {
     const r = buildCredits(REPO_ROOT);
     expect(r.errors).toEqual([]);
     expect(r.doc.credits.every((c) => c.credit_line.length > 0)).toBe(true);

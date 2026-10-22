@@ -16,7 +16,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "packs:import": "node tools/import-packs.ts",
     "credits": "node tools/build-credits.ts",
-    "clearcheck": "node tools/clear-check.ts"
+    "clearcheck": "node tools/clear-check.ts",
+    "packs:objects": "node tools/find-objects.ts"
   },
   "devDependencies": {
     "@types/node": "22.20.5",

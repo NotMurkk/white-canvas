@@ -7,6 +7,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { PNG } from 'pngjs';
 import { cropTile, expandAutotile, type RgbaImage } from '@tdmm/autotile';
+import { trimAfterIend } from '../import/image.ts';
 import { AtlasManifest, KindRegistry, PackManifest, TerrainTypes, ThemeDoc, parseAssetKey, resolveTheme, themeChain, type ResolvedTheme } from '@tdmm/map-format';
 
 const TILE = 32;
@@ -101,11 +102,12 @@ class Packs {
     let img = p.images.get(assetName);
     const url = new URL(asset.file, p.dir);
     if (!img) {
-      const png = PNG.sync.read(readFileSync(url));
+      const bytes = trimAfterIend(readFileSync(url));
+      const png = PNG.sync.read(Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength));
       img = scaleNearest({ width: png.width, height: png.height, data: new Uint8Array(png.data.buffer, png.data.byteOffset, png.data.length) }, p.manifest.format.scale);
       p.images.set(assetName, img);
     }
-    return { asset, img, file: url.href.slice(this.root.href.length), url };
+    return { asset, img, file: decodeURIComponent(url.href.slice(this.root.href.length)), url };
   }
 }
 

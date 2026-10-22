@@ -97,3 +97,16 @@ describe('inspectPng and rejections', () => {
     expect(() => inspectPng(new TextEncoder().encode('<!DOCTYPE html><html>'))).toThrow(/not a PNG/);
   });
 });
+
+describe('trailing bytes after IEND', () => {
+  it('decodes PNGs that have junk appended after the IEND chunk', async () => {
+    const { PNG } = await import('pngjs');
+    const { inspectPng, trimAfterIend } = await import('./image.ts');
+    const png = new PNG({ width: 16, height: 16 });
+    png.data.fill(255);
+    const clean = new Uint8Array(PNG.sync.write(png));
+    const dirty = new Uint8Array([...clean, 0x0a, 0x00, 0x13, 0x37]);
+    expect(trimAfterIend(dirty).length).toBe(clean.length);
+    expect(inspectPng(dirty).width).toBe(16);
+  });
+});

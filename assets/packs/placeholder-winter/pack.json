@@ -18,10 +18,10 @@
       "regions": {
         "tree_round": [0, 0, 2, 3],
         "tree_pine": [2, 0, 1, 2],
-        "house_small": [3, 0, 3, 3],
-        "bush": [6, 0, 1, 1],
-        "rock": [7, 0, 1, 1],
-        "flowers": [6, 1, 1, 1]
+        "house_small": [3, 0, 5, 5],
+        "bush": [8, 0, 1, 1],
+        "rock": [9, 0, 1, 1],
+        "flowers": [8, 1, 1, 1]
       }
     }
   }

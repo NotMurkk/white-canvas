@@ -4,87 +4,87 @@
   "id": "winter",
   "image": "winter.png",
   "imageWidth": 544,
-  "imageHeight": 642,
+  "imageHeight": 400,
   "tileSize": 32,
   "margin": 1,
   "spacing": 2,
   "columns": 16,
-  "tileCount": 241,
+  "tileCount": 97,
   "tiles": {
-    "placeholder-winter/ground:snow": 0
+    "ee-621/gen_3_snow:6,3": 96
   },
   "autotiles": {
-    "placeholder-winter/path_snow": {
-      "start": 1,
+    "ee-1631/snowpath": {
+      "start": 0,
       "patterns": 48,
       "frames": 1,
       "frameMs": 250
     },
-    "placeholder-winter/water": {
-      "start": 49,
+    "ee-621-32px/snow_2": {
+      "start": 48,
       "patterns": 48,
-      "frames": 4,
-      "frameMs": 320
+      "frames": 1,
+      "frameMs": 250
     }
   },
   "stamps": {
-    "placeholder-winter/stamps@house_small": {
+    "ee-1631/customtilesetsnow@0,75,5,5": {
       "x": 1,
-      "y": 545,
-      "w": 3,
-      "h": 3
+      "y": 239,
+      "w": 5,
+      "h": 5
     },
-    "placeholder-winter/stamps@tree_round": {
-      "x": 99,
-      "y": 545,
+    "ee-621/gen_3_snow@2,2,2,3": {
+      "x": 163,
+      "y": 239,
       "w": 2,
       "h": 3
     },
-    "placeholder-winter/stamps@tree_pine": {
-      "x": 165,
-      "y": 545,
+    "ee-621/gen_3_snow@4,2,1,2": {
+      "x": 229,
+      "y": 239,
       "w": 1,
       "h": 2
     },
-    "placeholder-winter/stamps@bush": {
-      "x": 199,
-      "y": 545,
+    "ee-1631/customtilesetsnow@6,23,1,1": {
+      "x": 263,
+      "y": 239,
       "w": 1,
       "h": 1
     },
-    "placeholder-winter/stamps@flowers": {
-      "x": 233,
-      "y": 545,
+    "ee-621/gen_3_snow@0,1,1,1": {
+      "x": 297,
+      "y": 239,
       "w": 1,
       "h": 1
     },
-    "placeholder-winter/stamps@rock": {
-      "x": 267,
-      "y": 545,
+    "ee-621/gen_3_snow@2,5,1,1": {
+      "x": 331,
+      "y": 239,
       "w": 1,
       "h": 1
     }
   },
   "sources": [
     {
-      "key": "placeholder-winter/ground",
-      "file": "assets/packs/placeholder-winter/ground.png",
-      "pack": "placeholder-winter"
+      "key": "ee-1631/customtilesetsnow",
+      "file": "assets/raw/ee-1631/CustomTilesetSnow.png",
+      "pack": "ee-1631"
     },
     {
-      "key": "placeholder-winter/path_snow",
-      "file": "assets/packs/placeholder-winter/path_snow.png",
-      "pack": "placeholder-winter"
+      "key": "ee-1631/snowpath",
+      "file": "assets/raw/ee-1631/Autotiles__SnowPath.png",
+      "pack": "ee-1631"
     },
     {
-      "key": "placeholder-winter/stamps",
-      "file": "assets/packs/placeholder-winter/stamps.png",
-      "pack": "placeholder-winter"
+      "key": "ee-621-32px/snow_2",
+      "file": "assets/raw/ee-621-32px/Autotiles__Snow_2.png",
+      "pack": "ee-621-32px"
     },
     {
-      "key": "placeholder-winter/water",
-      "file": "assets/packs/placeholder-winter/water.png",
-      "pack": "placeholder-winter"
+      "key": "ee-621/gen_3_snow",
+      "file": "assets/raw/ee-621/Gen 3 Snow.png",
+      "pack": "ee-621"
     }
   ],
   "theme": {
@@ -94,28 +94,28 @@
       "winter",
       "summer"
     ],
-    "baseFill": "placeholder-winter/ground:snow",
+    "baseFill": "ee-621/gen_3_snow:6,3",
     "terrain": {
       "grass": {
         "base": true
       },
       "path_dirt": {
-        "autotile": "placeholder-winter/path_snow"
+        "autotile": "ee-1631/snowpath"
       },
       "water": {
-        "autotile": "placeholder-winter/water"
+        "autotile": "ee-621-32px/snow_2"
       }
     },
     "objects": {
-      "bush": "placeholder-winter/stamps@bush",
-      "flowers": "placeholder-winter/stamps@flowers",
-      "house_small": "placeholder-winter/stamps@house_small",
-      "rock": "placeholder-winter/stamps@rock",
-      "tree_pine": "placeholder-winter/stamps@tree_pine",
-      "tree_round": "placeholder-winter/stamps@tree_round"
+      "bush": "ee-621/gen_3_snow@0,1,1,1",
+      "flowers": "ee-1631/customtilesetsnow@6,23,1,1",
+      "house_small": "ee-1631/customtilesetsnow@0,75,5,5",
+      "rock": "ee-621/gen_3_snow@2,5,1,1",
+      "tree_pine": "ee-621/gen_3_snow@4,2,1,2",
+      "tree_round": "ee-621/gen_3_snow@2,2,2,3"
     },
     "fallbacks": [],
     "missing": []
   },
-  "sourceHash": "235fbeeb098a13b0b1914a7d"
+  "sourceHash": "ea151446528323e2e1b93880"
 }

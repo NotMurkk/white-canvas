@@ -52,13 +52,30 @@ export interface InspectedPng {
   image: RgbaImage;
 }
 
+/**
+ * Cuts a PNG at the end of its IEND chunk. Some editors append bytes after IEND; browsers and
+ * RPG Maker ignore them, but pngjs rejects the file ("unrecognised content at end of stream").
+ */
+export function trimAfterIend(bytes: Uint8Array): Uint8Array {
+  let i = 8; // after the 8-byte signature
+  while (i + 12 <= bytes.length) {
+    const len = ((bytes[i]! << 24) | (bytes[i + 1]! << 16) | (bytes[i + 2]! << 8) | bytes[i + 3]!) >>> 0;
+    const end = i + 12 + len; // length + type + data + CRC
+    if (end > bytes.length) return bytes;
+    if (bytes[i + 4] === 0x49 && bytes[i + 5] === 0x45 && bytes[i + 6] === 0x4e && bytes[i + 7] === 0x44) return bytes.subarray(0, end); // "IEND"
+    i = end;
+  }
+  return bytes;
+}
+
 /** Decodes a PNG fully (so truncated downloads are caught). Throws with a readable message. */
 export function inspectPng(bytes: Uint8Array): InspectedPng {
   const reject = rejectionForSniffed(sniffImageType(bytes));
   if (reject) throw new Error(reject);
   let png: PNG;
   try {
-    png = PNG.sync.read(Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength));
+    const trimmed = trimAfterIend(bytes);
+    png = PNG.sync.read(Buffer.from(trimmed.buffer, trimmed.byteOffset, trimmed.byteLength));
   } catch (e) {
     throw new Error(`cannot decode PNG (truncated or corrupt download?): ${(e as Error).message}`);
   }

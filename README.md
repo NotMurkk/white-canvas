@@ -13,6 +13,7 @@ npm run dev:game     # reference game at http://localhost:5174/?map=/maps/<id>.m
 npm test             # unit tests + the committed-maps gate
 npm run typecheck
 npm run art          # regenerate placeholder art, rebuild theme atlases, regenerate credits
+npm run packs:objects -- <pack> <asset> --out preview.png   # list the objects on a sheet, to name stamp regions
 npm run packs:import # turn downloads/ into packs (see asset-catalog/starter-packs.md)
 npm run clearcheck   # re-run the clear check on every map (after content/ or sim changes); --check for CI
 ```
@@ -55,10 +56,12 @@ The **Check** tab starts with the **clear check**: every round is simulated with
 A theme (`themes/<id>.theme.json`) can `inherit` another theme and override only what changes; `winter` inherits `summer`. Any asset reference can be a fallback list, tried in order when atlases are built:
 
 ```json
-"water": { "autotile": ["da-slaqueen-811989710/free_water_autotile", "placeholder-winter/water"] }
+"water": { "autotile": ["ee-621-32px/snow_2", "placeholder-winter/water"] }
 ```
 
-Until that pack is imported, the placeholder is used; `npm run art` reports every fallback. Each theme builds its own atlas (`assets/atlases/<id>.png`), which records the fully resolved theme and a hash of its inputs. A test fails if a committed atlas is stale or a theme lacks art for something a map uses.
+The first entry that's available wins. The themes put the real Pokémon fan tilesets first (Ekat, IgnathiusNZX and CinnaYva packs from Eevee Expo; the full list is in `asset-catalog/starter-packs.md`) and the generated placeholders last. Each theme builds its own atlas (`assets/atlases/<id>.png`), which records the fully resolved theme and a hash of its inputs. A test fails if a committed atlas is stale or a theme lacks art for something a map uses.
+
+**Downloaded packs aren't committed.** They live in the git-ignored `assets/raw/`. The committed atlases and `credits.json` already contain the art, so the editor and game work on any clone. To rebuild atlases, you need the downloads: put the zips in `downloads/` and run `npm run packs:import`. Without them, the atlas freshness and credits checks are skipped with a note rather than failing.
 
 **Saving.**
 - Saving writes `maps/<id>.map.json` and `maps/<id>.waves.json` through the editor's dev server.
@@ -82,8 +85,8 @@ packages/map-runtime  logical map + theme + atlas -> Tiled-shaped JSON in memory
 content/              terrain-types.json, kinds.json (stamps), enemies.json, zones.json: shared gameplay meaning
 themes/               *.theme.json: visual mapping only; winter inherits summer
 maps/                 *.map.json + *.waves.json: committed maps
-assets/packs/         redistributable packs with provenance (placeholder summer and winter art for now)
-assets/raw/           git-ignored raw downloads turned into packs by the importer
+assets/packs/         redistributable packs with provenance (the generated placeholder fallbacks)
+assets/raw/           git-ignored raw downloads turned into packs by the importer (the real tilesets)
 assets/atlases/       generated per-theme atlases (with their resolved theme) + credits.json
 asset-catalog/        the 711-link tileset catalog and the starter download checklist
 tools/                art generation, atlas build, pack importer, credits, dev-server plugins
@@ -124,6 +127,7 @@ tools/                art generation, atlas build, pack importer, credits, dev-s
   - Forgiveness snapping, a test-tower stamp with a coverage heatmap.
   - Marquee copy and paste, palette search and pinning.
   - Last-run enemy trails in playtest.
-- **Alongside: real art.**
-  - Import the starter packs (`asset-catalog/starter-packs.md`).
-  - Put them first in the themes' fallback lists.
+- **Real art (Batch A done).**
+  - Ekat's Gen 3 tilesets, IgnathiusNZX's river water and CinnaYva's snow tileset are imported and used first in both themes.
+  - Kinds now match the art: the house is 5×5.
+  - Next: the DeviantArt batches (need a logged-in browser), Anon Alpaca's trees (MEGA) and lolalime's water (Eevee Expo login).

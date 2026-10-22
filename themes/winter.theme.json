@@ -5,17 +5,17 @@
   "name": "Winter",
   "inherits": "summer",
   "atlas": "winter",
-  "baseFill": "placeholder-winter/ground:snow",
+  "baseFill": ["ee-621/gen_3_snow:6,3", "placeholder-winter/ground:snow"],
   "terrain": {
-    "water": { "autotile": "placeholder-winter/water" },
-    "path_dirt": { "autotile": "placeholder-winter/path_snow" }
+    "water": { "autotile": ["ee-621-32px/snow_2", "placeholder-winter/water"] },
+    "path_dirt": { "autotile": ["ee-1631/snowpath", "placeholder-winter/path_snow"] }
   },
   "objects": {
-    "tree_round": "placeholder-winter/stamps@tree_round",
-    "tree_pine": "placeholder-winter/stamps@tree_pine",
-    "house_small": "placeholder-winter/stamps@house_small",
-    "bush": "placeholder-winter/stamps@bush",
-    "rock": "placeholder-winter/stamps@rock",
-    "flowers": "placeholder-winter/stamps@flowers"
+    "tree_round": ["ee-621/gen_3_snow@2,2,2,3", "placeholder-winter/stamps@tree_round"],
+    "tree_pine": ["ee-621/gen_3_snow@4,2,1,2", "placeholder-winter/stamps@tree_pine"],
+    "house_small": ["ee-1631/customtilesetsnow@0,75,5,5", "placeholder-winter/stamps@house_small"],
+    "bush": ["ee-621/gen_3_snow@0,1,1,1", "placeholder-winter/stamps@bush"],
+    "rock": ["ee-621/gen_3_snow@2,5,1,1", "placeholder-winter/stamps@rock"],
+    "flowers": ["ee-1631/customtilesetsnow@6,23,1,1", "placeholder-winter/stamps@flowers"]
   }
 }

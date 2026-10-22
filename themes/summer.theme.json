@@ -4,18 +4,18 @@
   "id": "summer",
   "name": "Summer",
   "atlas": "summer",
-  "baseFill": "placeholder/ground:grass",
+  "baseFill": ["ee-621/mega_outdoor_tileset:0,0", "placeholder/ground:grass"],
   "terrain": {
     "grass": { "base": true },
-    "water": { "autotile": "placeholder/water" },
-    "path_dirt": { "autotile": "placeholder/path_dirt" }
+    "water": { "autotile": ["ee-1604/sweet_water", "placeholder/water"] },
+    "path_dirt": { "autotile": ["ee-621-32px/default_2", "placeholder/path_dirt"] }
   },
   "objects": {
-    "tree_round": "placeholder/stamps@tree_round",
-    "tree_pine": "placeholder/stamps@tree_pine",
-    "house_small": "placeholder/stamps@house_small",
-    "bush": "placeholder/stamps@bush",
-    "rock": "placeholder/stamps@rock",
-    "flowers": "placeholder/stamps@flowers"
+    "tree_round": ["ee-621/mega_outdoor_tileset@0,105,2,3", "placeholder/stamps@tree_round"],
+    "tree_pine": ["ee-621/mega_outdoor_tileset@5,111,1,2", "placeholder/stamps@tree_pine"],
+    "house_small": ["ee-621/brick_house_tiles_revamp@0,0,5,5", "placeholder/stamps@house_small"],
+    "bush": ["ee-621/mega_outdoor_tileset@0,5,1,1", "placeholder/stamps@bush"],
+    "rock": ["ee-621/mega_outdoor_tileset@0,183,1,1", "placeholder/stamps@rock"],
+    "flowers": ["ee-621/brick_house_tiles_revamp@7,8,1,1", "placeholder/stamps@flowers"]
   }
 }

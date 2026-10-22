@@ -1,16 +1,18 @@
 {
   "tree_round": {
-    "name": "Round tree",
+    "name": "Tree",
     "category": "tree",
     "footprint": ["CC", "CC", "BB"],
     "anchor": [0, 2],
+    "removalCost": 300,
     "color": "#3c8a3c"
   },
   "tree_pine": {
-    "name": "Pine",
+    "name": "Small tree",
     "category": "tree",
     "footprint": ["C", "B"],
     "anchor": [0, 1],
+    "removalCost": 150,
     "color": "#2f6e48"
   },
   "bush": {
@@ -18,6 +20,7 @@
     "category": "tree",
     "footprint": ["B"],
     "anchor": [0, 0],
+    "removalCost": 100,
     "color": "#4f9a40"
   },
   "rock": {
@@ -26,13 +29,14 @@
     "footprint": ["B"],
     "anchor": [0, 0],
     "allowedOn": ["land", "water"],
+    "removalCost": 200,
     "color": "#8a8a90"
   },
   "house_small": {
-    "name": "Small house",
+    "name": "House",
     "category": "building",
-    "footprint": ["CCC", "BBB", "BBB"],
-    "anchor": [1, 2],
+    "footprint": ["CCCCC", "CCCCC", "BBBBB", "BBBBB", "BBBBB"],
+    "anchor": [2, 4],
     "color": "#c05040"
   },
   "flowers": {

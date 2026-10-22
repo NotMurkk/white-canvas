@@ -118,8 +118,8 @@ const ground = image(8 * T, T, (x, y) => {
   }
 });
 
-// Stamps sheet, 8 x 3 tiles (16 px native). Regions are declared in pack.json:
-//   tree_round 0,0 2x3 · tree_pine 2,0 1x2 · house_small 3,0 3x3 · bush 6,0 · rock 7,0 · flowers 6,1
+// Stamps sheet, 10 x 5 tiles (16 px native). Regions are declared in pack.json:
+//   tree_round 0,0 2x3 · tree_pine 2,0 1x2 · house_small 3,0 5x5 · bush 8,0 · rock 9,0 · flowers 8,1
 type Painter = (x: number, y: number) => Rgba | null;
 const OUTLINE = hex('#203018');
 /** Fills a shape, drawing a 1 px dark outline where the shape meets empty space. */
@@ -155,20 +155,20 @@ const stampPainters: [number, number, Painter][] = [
     shape(rect(6, 24, 10, 30), () => hex('#7a4a28')),
     (x, y) => (ellipse(8, 30, 6, 2)(x, y) ? hex('#305828', 140) : null),
   )],
-  // small house: red roof, cream walls, door, window
+  // house: red roof over the top two tiles, cream walls, door, two windows
   [3 * T, 0, layer(
-    shape((x, y) => y >= 2 && y < 20 && x >= 1 + Math.max(0, 8 - y) && x < 47 - Math.max(0, 8 - y), (x, y) => (y % 4 === 3 ? hex('#a03830') : hex('#d05040'))),
-    shape(rect(21, 34, 28, 46), () => hex('#6a4024')),
-    shape(rect(7, 28, 15, 36), () => hex('#80c8f0')),
-    shape(rect(33, 28, 41, 36), () => hex('#80c8f0')),
-    shape(rect(3, 19, 45, 46), (x, y) => (y === 19 ? hex('#a08858') : hex('#f0e0b8'))),
+    shape((x, y) => y >= 4 && y < 36 && x >= 2 + Math.max(0, 14 - y) && x < 78 - Math.max(0, 14 - y), (x, y) => (y % 4 === 3 ? hex('#a03830') : hex('#d05040'))),
+    shape(rect(36, 56, 45, 78), () => hex('#6a4024')),
+    shape(rect(12, 46, 24, 58), () => hex('#80c8f0')),
+    shape(rect(56, 46, 68, 58), () => hex('#80c8f0')),
+    shape(rect(5, 35, 75, 78), (x, y) => (y === 35 ? hex('#a08858') : hex('#f0e0b8'))),
   )],
-  [6 * T, 0, shape(ellipse(8, 9, 7.5, 6.5), leafy('#5aa848', '#3e8034', 8, 9))],
-  [7 * T, 0, layer(
+  [8 * T, 0, shape(ellipse(8, 9, 7.5, 6.5), leafy('#5aa848', '#3e8034', 8, 9))],
+  [9 * T, 0, layer(
     shape(ellipse(8, 9, 7, 6), (x, y) => (x + y < 11 ? hex('#c8c8d0') : hex('#9090a0'))),
   )],
   // flowers: decor with a transparent background
-  [6 * T, T, (x, y) => {
+  [8 * T, T, (x, y) => {
     for (const [fx, fy, c] of [[3, 4, '#f86858'], [11, 6, '#f8d048'], [6, 11, '#f87898'], [12, 13, '#f86858']] as const) {
       const dx = x - fx;
       const dy = y - fy;
@@ -179,8 +179,8 @@ const stampPainters: [number, number, Painter][] = [
     return null;
   }],
 ];
-const stampSizes: Record<string, [number, number]> = { 0: [2, 3], [2 * T]: [1, 2], [3 * T]: [3, 3] };
-const stamps = image(8 * T, 3 * T, (x, y) => {
+const stampSizes: Record<string, [number, number]> = { 0: [2, 3], [2 * T]: [1, 2], [3 * T]: [5, 5] };
+const stamps = image(10 * T, 5 * T, (x, y) => {
   for (const [ox, oy, paint] of stampPainters) {
     const [w, h] = stampSizes[ox] ?? [1, 1];
     if (x >= ox && y >= oy && x < ox + w * T && y < oy + h * T) return paint(x - ox, y - oy) ?? CLEAR;

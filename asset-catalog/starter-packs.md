@@ -24,11 +24,29 @@ Eevee Expo resource pages link to MediaFire or Google Drive zips. Keep each zip'
 
 | Done | What | For | Link | Credit |
 |---|---|---|---|---|
-| [ ] | Ekat's Public Gen 3 Tilesets (81 sets, 16 px native) | Outdoor base, trees, buildings | https://eeveeexpo.com/resources/621/ | ☆ (credits file in zip). Contains some official rips: set `ripped_from_official: "partial"` in its pack.json after importing |
-| [ ] | IgnathiusNZX: AutoTiles for Rivers and Lakes | Water autotiles | https://eeveeexpo.com/resources/1604/ | ☆ |
-| [ ] | lolalime: Auto Water Tiles | Water autotiles (alternative) | https://eeveeexpo.com/resources/1145/ | ☆ |
-| [ ] | Anon Alpaca: Big Tree Pack | Trees | https://eeveeexpo.com/resources/602/ | ☆ |
-| [ ] | CinnaYva: Gen 3 Snow Tileset – Update | Winter base | https://eeveeexpo.com/resources/1631/ | ☆ |
+| [x] | Ekat's Public Gen 3 Tilesets (81 sets, 16 px native) | Outdoor base, trees, buildings | https://eeveeexpo.com/resources/621/ | ☆ (credits file in zip). Contains some official rips: imported as `ee-621` and `ee-621-32px` with `ripped_from_official: "partial"` |
+| [x] | IgnathiusNZX: AutoTiles for Rivers and Lakes | Water autotiles | https://eeveeexpo.com/resources/1604/ | ☆ (imported as `ee-1604`) |
+| [ ] | lolalime: Auto Water Tiles | Water autotiles (alternative) | https://eeveeexpo.com/resources/1145/ | ☆ (the download needs an Eevee Expo login) |
+| [ ] | Anon Alpaca: Big Tree Pack | Trees | https://eeveeexpo.com/resources/602/ | ☆ (hosted on MEGA: download it in a browser) |
+| [x] | CinnaYva: Gen 3 Snow Tileset – Update | Winter base | https://eeveeexpo.com/resources/1631/ | ☆ (imported as `ee-1631` and `ee-1631-16px`) |
+
+### What the themes use from Batch A
+
+Region keys are `pack/asset@col,row,w,h` in the sheet's native tiles. `npm run packs:objects -- <pack> <asset> --out preview.png` lists the separate objects on a sheet, which helps find them.
+
+| Kind | Summer | Winter |
+|---|---|---|
+| Ground | `ee-621/mega_outdoor_tileset:0,0` | `ee-621/gen_3_snow:6,3` |
+| Water | `ee-1604/sweet_water` (animated) | `ee-621-32px/snow_2` (ice) |
+| Enemy path | `ee-621-32px/default_2` | `ee-1631/snowpath` |
+| Tree (2×3) | `ee-621/mega_outdoor_tileset@0,105,2,3` | `ee-621/gen_3_snow@2,2,2,3` |
+| Small tree (1×2) | `ee-621/mega_outdoor_tileset@5,111,1,2` | `ee-621/gen_3_snow@4,2,1,2` |
+| House (5×5) | `ee-621/brick_house_tiles_revamp@0,0,5,5` | `ee-1631/customtilesetsnow@0,75,5,5` |
+| Bush | `ee-621/mega_outdoor_tileset@0,5,1,1` | `ee-621/gen_3_snow@0,1,1,1` |
+| Rock | `ee-621/mega_outdoor_tileset@0,183,1,1` | `ee-621/gen_3_snow@2,5,1,1` |
+| Flowers | `ee-621/brick_house_tiles_revamp@7,8,1,1` | `ee-1631/customtilesetsnow@6,23,1,1` |
+
+Every entry has the placeholder as its fallback, so a clone without the downloads still builds.
 
 ## Batch B: DeviantArt, week 1 (10 downloads, the free-account cap)
 
